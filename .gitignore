@@ -24,3 +24,9 @@ site/
 
 # Personal notes & credentials - STRICTLY LOCAL (NEVER TRACK OR PUSH TO REMOTE)
 07_personal/
+
+# Legacy archive
+archive/
+
+.obsidian/
+

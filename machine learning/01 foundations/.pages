@@ -1,5 +1,0 @@
-title: Foundations
-nav:
-  - 01. What is Machine Learning: 01_what_is_machine_learning.md
-  - 02. Calculus & Continuous Optimization: 02_calculus.md
-  - 03. Subspaces, Projections & Least Squares: 03_subspaces_projections_and_least_squares.md
