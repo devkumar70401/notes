@@ -1,6 +1,0 @@
-# .cargo/config.toml
-# This file tells Cargo how to configure builds for this project automatically.
-
-[build]
-# Set the default cross-compilation target to ARM Cortex-M4 with hardware float
-target = "thumbv7em-none-eabihf"
