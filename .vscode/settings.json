@@ -11,7 +11,8 @@
         "**/*.pages": true,
         "mkdocs.yml": true,
         "requirements.txt": true,
-        "README.md": true,
+        "README.md": false,
+        ".obsidian": true,
         ".docs": true,
         "site": true
     },
