@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://devkumar70401.github.io/notes/</loc>
+         <lastmod>2026-11-14</lastmod>
+    </url>
+    <url>
+         <loc>https://devkumar70401.github.io/notes/embedded_rust/</loc>
+         <lastmod>2026-11-14</lastmod>
+    </url>
+    <url>
+         <loc>https://devkumar70401.github.io/notes/embedded_rust/unit_01_foundations/ch01_syntax_and_execution_model/</loc>
+         <lastmod>2026-11-14</lastmod>
+    </url>
+    <url>
+         <loc>https://devkumar70401.github.io/notes/hardware/hardware_theory/</loc>
+         <lastmod>2026-11-14</lastmod>
+    </url>
+</urlset>

@@ -1,0 +1,1193 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Production-grade engineering notes on Embedded Rust, Microcontrollers, and Robotics.">
+      
+      
+        <meta name="author" content="Devendra">
+      
+      
+        <link rel="canonical" href="https://devkumar70401.github.io/notes/embedded_rust/">
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="unit_01_foundations/ch01_syntax_and_execution_model/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/avatar.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+    
+    
+      
+        <title>Embedded Systems & Robotics with Rust: Complete Theory & Practice - Systems & Robotics Engineering Notes</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="https://unpkg.com/katex@0/dist/katex.min.css">
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="sky">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#embedded-systems-robotics-with-rust-complete-theory-practice" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Systems &amp; Robotics Engineering Notes" class="md-header__button md-logo" aria-label="Systems & Robotics Engineering Notes" data-md-component="logo">
+      
+  <img src="../assets/avatar.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Systems & Robotics Engineering Notes
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Embedded Systems &amp; Robotics with Rust: Complete Theory &amp; Practice
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="sky"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="sky"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/devkumar70401/notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    devkumar70401/notes
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Machine Learning Vault
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+  Embedded rust
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../hardware/hardware_theory/" class="md-tabs__link">
+          
+  
+  
+  Hardware
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Systems &amp; Robotics Engineering Notes" class="md-nav__button md-logo" aria-label="Systems & Robotics Engineering Notes" data-md-component="logo">
+      
+  <img src="../assets/avatar.png" alt="logo">
+
+    </a>
+    Systems & Robotics Engineering Notes
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/devkumar70401/notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    devkumar70401/notes
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Machine Learning Vault
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embedded rust
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Embedded rust
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embedded Systems &amp; Robotics with Rust: Complete Theory &amp; Practice
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Unit 01 foundations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Unit 01 foundations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="unit_01_foundations/ch01_syntax_and_execution_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 1: From Java/Python to Rust: Syntax &amp; Execution Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hardware
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Hardware
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hardware/hardware_theory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hardware theory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href=".." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Machine Learning Vault
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="./" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Embedded rust
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="embedded-systems-robotics-with-rust-complete-theory-practice">Embedded Systems &amp; Robotics with Rust: Complete Theory &amp; Practice<a class="headerlink" href="#embedded-systems-robotics-with-rust-complete-theory-practice" title="Permanent link">&para;</a></h1>
+<hr />
+<h1 id="index">Index<a class="headerlink" href="#index" title="Permanent link">&para;</a></h1>
+<h3 id="safety-critical-engineering-standards">Safety-Critical Engineering Standards<a class="headerlink" href="#safety-critical-engineering-standards" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><a href="#nasa-power-of-10-rules-for-safety-critical-systems">NASA Power of 10: Rules for Safety-Critical Systems</a></strong></li>
+<li>Rule 1: Eliminate All Recursion</li>
+<li>Rule 2: Guarantee Fixed Upper Bounds on All Loops</li>
+<li>Rule 3: Ban Dynamic Heap Allocation After Boot (<code>#![no_std]</code> + <code>heapless</code>)</li>
+<li>Rule 4: Keep Functions Modular and Under 60 Lines</li>
+<li>Rule 5: Zero Panics — Treat Panicking Code as a Compilation Bug</li>
+<li>Rule 6: Minimize Variable Scopes and Enforce Immutability</li>
+<li>Rule 7: Zero Unchecked Returns (<code>#![deny(unused_must_use)]</code> &amp; No <code>.unwrap()</code>)</li>
+<li>Rule 8: Restrict Macro Metaprogramming in Safety Paths</li>
+<li>Rule 9: Pure Safe Rust Only (<code>#![forbid(unsafe_code)]</code>)</li>
+<li>Rule 10: Enforce Zero-Warning Compilation and Formal Verification</li>
+<li>The Safety-Critical Embedded Rust Starter Template</li>
+</ul>
+<hr />
+<h3 id="unit-1-foundations-rust-through-an-embedded-lens">Unit 1: Foundations — Rust through an Embedded Lens<a class="headerlink" href="#unit-1-foundations-rust-through-an-embedded-lens" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Chapter 1: <a href="unit_01_foundations/ch01_syntax_and_execution_model/">From Java/Python to Rust: Syntax &amp; Execution Model</a></strong></li>
+<li>1.1 The Compilation Model: Bytecode &amp; Interpreters vs. Ahead-of-Time (AOT) Machine Code</li>
+<li>1.2 Cargo, Toolchains, Cross-Compilation Targets (<code>thumbv7em</code>, <code>riscv32</code>)</li>
+<li>1.3 Variables, Immutability by Default, and Shadowing</li>
+<li>1.4 Primitive Types: Fixed-width Integers (<code>u8</code>-<code>u64</code>, <code>i8</code>-<code>i64</code>), Floats, Booleans, and Chars</li>
+<li>1.5 Functions, Expressions vs. Statements, and Return Values</li>
+<li>1.6 Control Flow: <code>if/else</code> as Expressions, <code>loop</code>, <code>while</code>, and <code>for</code> Iterators</li>
+<li><strong>Chapter 2: The Core Mental Model: Ownership &amp; Borrowing</strong></li>
+<li>2.1 The Problem with Garbage Collection in Real-Time &amp; Microcontrollers</li>
+<li>2.2 Ownership Rules &amp; Move Semantics (Why variables move instead of copying by reference)</li>
+<li>2.3 References and Borrowing: Immutable (<code>&amp;T</code>) vs. Mutable (<code>&amp;mut T</code>)</li>
+<li>2.4 Aliasing XOR Mutability: How Rust Guarantees Single Hardware Access at Compile Time</li>
+<li>2.5 Lifetimes Demystified: Static Data vs. Stack Data in Embedded Contexts</li>
+<li>2.6 The <code>Copy</code> vs. <code>Clone</code> Traits</li>
+<li><strong>Chapter 3: Low-Level Types, Bit Manipulation &amp; Hardware Registers</strong></li>
+<li>3.1 Hexadecimal, Binary Literals, and Byte Slices (<code>&amp;[u8]</code>)</li>
+<li>3.2 Bitwise Operations: AND (<code>&amp;</code>), OR (<code>|</code>), XOR (<code>^</code>), NOT (<code>!</code>), Shifts (<code>&lt;&lt;</code>, <code>&gt;&gt;</code>)</li>
+<li>3.3 Register Bitmasking: Setting, Clearing, and Toggling Individual Bits</li>
+<li>3.4 Endianness: Little-Endian vs. Big-Endian Conversions (<code>to_le_bytes</code>, <code>from_be_bytes</code>)</li>
+<li>3.5 Memory Layouts and Alignment: <code>#[repr(C)]</code> and <code>#[repr(packed)]</code> for Hardware Buffers</li>
+<li><strong>Chapter 4: Data Modeling for Robotics: Structs &amp; Enums</strong></li>
+<li>4.1 Structs: Classic Structs, Tuple Structs, and Unit Structs</li>
+<li>4.2 Methods and Associated Functions (<code>impl</code> Blocks)</li>
+<li>4.3 Enums with Data: Why Rust Enums Are Algebraic Data Types (Unlike Java/Python Enums)</li>
+<li>4.4 Pattern Matching: Exhaustive <code>match</code>, Guards, and <code>if let</code></li>
+<li>4.5 Modeling Finite State Machines (FSM) for Mini-Robots with Enums</li>
+<li><strong>Chapter 5: Error Handling without Exceptions</strong></li>
+<li>5.1 Why Embedded Systems Reject Exceptions: Predictability and Code Size</li>
+<li>5.2 The <code>Option&lt;T&gt;</code> Type: Eliminating <code>null</code> / <code>None</code> Pointer Errors</li>
+<li>5.3 The <code>Result&lt;T, E&gt;</code> Type: Idiomatic Hardware Failure Handling</li>
+<li>5.4 The <code>?</code> (Try) Operator: Propagating Hardware Errors Cleanly</li>
+<li>5.5 Custom Error Enums for Robot Subsystems (e.g., <code>SensorError::I2cTimeout</code>)</li>
+</ul>
+<hr />
+<h3 id="unit-2-abstractions-safety-zero-cost-architecture">Unit 2: Abstractions &amp; Safety — Zero-Cost Architecture<a class="headerlink" href="#unit-2-abstractions-safety-zero-cost-architecture" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Chapter 6: Traits and Polymorphism (Interfaces Done Right)</strong></li>
+<li>6.1 Traits vs. Java Interfaces / Python Abstract Base Classes</li>
+<li>6.2 Implementing Traits for Structs</li>
+<li>6.3 Common Standard Traits: <code>Default</code>, <code>Display</code>, <code>Debug</code>, <code>PartialEq</code></li>
+<li>6.4 Static Dispatch (<code>impl Trait</code>, Generics) vs. Dynamic Dispatch (<code>dyn Trait</code>)</li>
+<li>6.5 Why Embedded Rust Favors Static Dispatch (Zero-Cost Abstractions)</li>
+<li><strong>Chapter 7: Generics and Compile-Time Guarantees</strong></li>
+<li>7.1 Generic Functions and Structs</li>
+<li>7.2 Trait Bounds and <code>where</code> Clauses</li>
+<li>7.3 Monomorphization: How the Compiler Generates Specialized Machine Code</li>
+<li>7.4 Const Generics: Fixed-Size Arrays and Ring Buffers without Heap Allocation</li>
+<li><strong>Chapter 8: The Typestate Pattern (Hardware Safety in Types)</strong></li>
+<li>8.1 The Typestate Pattern Concept: Encoding State into Types</li>
+<li>8.2 Safe Pin Reconfiguration: Preventing Writes to Input Pins at Compile Time</li>
+<li>8.3 State Machine Enforcement: Preventing Robot Motion Before Initialization</li>
+<li>8.4 Zero-Sized Types (ZST) and Compiler Erasure</li>
+<li><strong>Chapter 9: Working without an Operating System (<code>#![no_std]</code>)</strong></li>
+<li>9.1 The Anatomy of <code>#![no_std]</code> and <code>core</code> vs. <code>std</code></li>
+<li>9.2 The Panic Handler: <code>panic-halt</code>, <code>panic-rtt-target</code>, and <code>panic-probe-sys</code></li>
+<li>9.3 Memory Sections: Flash (.text/.rodata), RAM (.data/.bss), Stack, and Vector Table</li>
+<li>9.4 Static Variables and Safe Global State (<code>Atomic</code> types vs. critical sections)</li>
+<li><strong>Chapter 10: Unsafe Rust &amp; Direct Memory Access (MMIO)</strong></li>
+<li>10.1 Safe Rust vs. Unsafe Rust: What <code>unsafe</code> Actually Means</li>
+<li>10.2 Raw Pointers (<code>*const T</code>, <code>*mut T</code>) and Memory-Mapped I/O (MMIO)</li>
+<li>10.3 Volatile Reads and Writes: Preventing Aggressive Compiler Optimizations</li>
+<li>10.4 Creating Safe Abstraction Wrappers over Raw Hardware Registers</li>
+</ul>
+<hr />
+<h3 id="unit-3-the-embedded-rust-hardware-stack">Unit 3: The Embedded Rust Hardware Stack<a class="headerlink" href="#unit-3-the-embedded-rust-hardware-stack" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Chapter 11: The Architecture of Embedded Rust</strong></li>
+<li>11.1 SVD Files (System View Description) and <code>svd2rust</code></li>
+<li>11.2 The PAC (Peripheral Access Crate): Low-Level Register Access</li>
+<li>11.3 The HAL (Hardware Abstraction Layer): Safe Peripheral Drivers</li>
+<li>11.4 The BSP (Board Support Package): Pinout Mappings and On-Board Devices</li>
+<li>11.5 Device Singletons &amp; <code>take()</code>: Guaranteeing Only One Instance of a Peripheral</li>
+<li><strong>Chapter 12: <code>embedded-hal</code> &amp; Write-Once Device Drivers</strong></li>
+<li>12.1 The <code>embedded-hal</code> Philosophy: Platform-Agnostic Drivers</li>
+<li>12.2 Digital I/O Traits (<code>OutputPin</code>, <code>InputPin</code>)</li>
+<li>12.3 Bus Traits (<code>I2c</code>, <code>Spi</code>, <code>PwmPin</code>)</li>
+<li>12.4 How to Use Off-the-Shelf Drivers from <code>crates.io</code></li>
+<li>12.5 Writing a Custom, Platform-Agnostic Driver for an H-Bridge Motor Controller</li>
+<li><strong>Chapter 13: Embedded Tooling, Emulation &amp; Debugging</strong></li>
+<li>13.1 Toolchain Setup: <code>rustup target add</code>, <code>cargo-generate</code>, <code>flip-link</code></li>
+<li>13.2 Real-Time Transfer (RTT) and <code>defmt</code>: Efficient Binary Logging</li>
+<li>13.3 Flashing and Debugging with <code>probe-rs</code></li>
+<li>13.4 Microcontroller Emulation: Using Wokwi and QEMU for Instant Testing without Hardware</li>
+<li><strong>Chapter 14: Interrupts and Real-Time Concurrency</strong></li>
+<li>14.1 Microcontroller Interrupts and NVIC (Nested Vectored Interrupt Controller)</li>
+<li>14.2 Writing Interrupt Service Routines (ISRs) in Rust</li>
+<li>14.3 Sharing Data Between Interrupts and Main Thread: <code>RefCell</code>, <code>Mutex</code>, Critical Sections</li>
+<li>14.4 Race Conditions, Deadlocks, and Priority Inversion in Embedded Systems</li>
+</ul>
+<hr />
+<h3 id="unit-4-actuators-sensors-communication-robotics-peripherals">Unit 4: Actuators, Sensors &amp; Communication (Robotics Peripherals)<a class="headerlink" href="#unit-4-actuators-sensors-communication-robotics-peripherals" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Chapter 15: GPIO &amp; Digital I/O</strong></li>
+<li>15.1 Push-Pull vs. Open-Drain Outputs</li>
+<li>15.2 Pull-Up and Pull-Down Resistors for Sensor Inputs</li>
+<li>15.3 Pushbutton Reading and Software Debounce Algorithms</li>
+<li>15.4 External Interrupts (Pin Change Interrupts) for Wheel Encoders</li>
+<li><strong>Chapter 16: Timers, Clocks &amp; Pulse Width Modulation (PWM)</strong></li>
+<li>16.1 Hardware Timers, Prescalers, and Counter Periods</li>
+<li>16.2 Understanding PWM: Duty Cycle, Frequency, and Resolution</li>
+<li>16.3 Driving DC Motors with H-Bridges (L298N, TB6612FNG)</li>
+<li>16.4 Controlling Hobby RC Servo Motors (1ms to 2ms Pulse Width Timing)</li>
+<li><strong>Chapter 17: Serial Communication &amp; Telemetry (UART)</strong></li>
+<li>17.1 UART Fundamentals: Baud Rate, Parity, Framing</li>
+<li>17.2 Polling vs. Interrupt-Driven vs. DMA-Driven Serial</li>
+<li>17.3 Streaming Debug Logs and Robot Telemetry to a PC</li>
+<li>17.4 Parsing Serial Commands from a Host / Remote Controller</li>
+<li><strong>Chapter 18: Sensor Buses: I2C (Inter-Integrated Circuit)</strong></li>
+<li>18.1 I2C Protocol: Master/Slave, Addressing, SCL/SDA, Pull-up Requirements</li>
+<li>18.2 Handling Bus Errors and Deadlocks</li>
+<li>18.3 Interfacing with Inertial Measurement Units (IMU: MPU6050 / ICM-20948)</li>
+<li>18.4 Driving Small Displays (SSD1306 OLED) for Robot Status</li>
+<li><strong>Chapter 19: High-Speed Buses: SPI (Serial Peripheral Interface)</strong></li>
+<li>19.1 SPI Protocol: MOSI, MISO, SCK, CS/SS, and Clock Polarity/Phase (Modes 0-3)</li>
+<li>19.2 Reading Time-of-Flight (ToF) Distance Sensors &amp; Optical Flow Sensors</li>
+<li>19.3 Interfacing with 2.4GHz Wireless Transceivers (nRF24L01)</li>
+<li>19.4 Data Logging to SPI Flash / MicroSD Cards</li>
+<li><strong>Chapter 20: Analog-to-Digital Conversion (ADC)</strong></li>
+<li>20.1 ADC Fundamentals: Sampling Rate, Resolution (10-bit / 12-bit), Reference Voltages</li>
+<li>20.2 Reading Potentiometers, Analog Joysticks, and Light/IR Sensors</li>
+<li>20.3 Battery Voltage Monitoring and Low-Battery Failsafes</li>
+</ul>
+<hr />
+<h3 id="unit-5-modern-asynchronous-robotics-with-embassy">Unit 5: Modern Asynchronous Robotics with Embassy<a class="headerlink" href="#unit-5-modern-asynchronous-robotics-with-embassy" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Chapter 21: Async/Await on Bare Metal</strong></li>
+<li>21.1 Why Traditional RTOS (FreeRTOS) is Replaced by Async Rust</li>
+<li>21.2 The Embassy Architecture: Cooperative Scheduling without Overhead</li>
+<li>21.3 The Async Mental Model: <code>Future</code>, <code>poll</code>, <code>Waker</code>, and <code>await</code></li>
+<li>21.4 Zero Allocations in Embassy: Static Future Memory Allocation</li>
+<li><strong>Chapter 22: Embassy Tasks, Timers &amp; Communication Channels</strong></li>
+<li>22.1 Defining and Spawning Multiple Independent Tasks</li>
+<li>22.2 Non-Blocking Timers: <code>Timer::after()</code>, <code>Ticker</code></li>
+<li>22.3 Inter-Task Communication: Embassy Channels and Signals</li>
+<li>22.4 Mutexes in Async Rust: Sharing Peripherals Safely Between Tasks</li>
+<li><strong>Chapter 23: Multi-Subsystem Robot Coordination with Embassy</strong></li>
+<li>23.1 Concurrent Execution: Sensor Polling Task + Motor Drive Task + Telemetry Task</li>
+<li>23.2 Software Watchdog and Safety Heartbeats</li>
+<li>23.3 Dynamic Priority &amp; Cancellation: Aborting Motor Movements on Obstacle Alerts</li>
+</ul>
+<hr />
+<h3 id="unit-6-mini-robot-projects-closed-loop-control">Unit 6: Mini-Robot Projects &amp; Closed-Loop Control<a class="headerlink" href="#unit-6-mini-robot-projects-closed-loop-control" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Chapter 24: Differential Drive Kinematics &amp; Motor Control</strong></li>
+<li>24.1 Differential Drive Robot Physics: Linear Velocity, Angular Velocity, Wheel Speeds</li>
+<li>24.2 Quadrature Encoders: Measuring RPM and Traveled Distance</li>
+<li>24.3 Writing a Robust Differential Drive Controller in Rust</li>
+<li><strong>Chapter 25: Sensor Filtering &amp; State Estimation</strong></li>
+<li>25.1 Sensor Noise: Accelerometer Vibrations &amp; Gyroscope Drift</li>
+<li>25.2 Fixed-Point vs. Floating-Point Math on Microcontrollers without FPU</li>
+<li>25.3 Implementing a Low-Pass Filter and Complementary Filter for Robot Tilt/Heading</li>
+<li><strong>Chapter 26: Closed-Loop PID Control</strong></li>
+<li>26.1 PID Concepts: Proportional (P), Integral (I), Derivative (D)</li>
+<li>26.2 Anti-Windup, Derivative Kick Mitigation, and Loop Timing</li>
+<li>26.3 Implementing a Generic, Reusable <code>PidController</code> Struct in Rust</li>
+<li>26.4 Tuning Motor Speed and Heading Loops</li>
+<li><strong>Chapter 27: Autonomous Behaviors &amp; Navigation</strong></li>
+<li>27.1 Infrared Line Following with Multi-Sensor Array &amp; PID</li>
+<li>27.2 Obstacle Avoidance using Ultrasonic / ToF Distance Sensors</li>
+<li>27.3 Wall Following and Simple Reactive Navigation</li>
+<li>27.4 Wall-E Style FSM: Idle, Exploring, Avoiding, Low Battery Warning</li>
+<li><strong>Chapter 28: Wireless Telemetry &amp; Remote Control</strong></li>
+<li>28.1 Packet Serialization/Deserialization without Heap: <code>serde</code> + <code>postcard</code></li>
+<li>28.2 Wireless Control via ESP-NOW / BLE / nRF24</li>
+<li>28.3 Real-Time Telemetry to a Python/Web Dashboard</li>
+<li>28.4 Capstone Review: Complete Architecture of a Rust-Powered Mini-Robot</li>
+</ul>
+<hr />
+<h1 id="nasa-power-of-10-rules-for-safety-critical-systems">NASA Power of 10: Rules for Safety-Critical Systems<a class="headerlink" href="#nasa-power-of-10-rules-for-safety-critical-systems" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>[!IMPORTANT] The Golden Safety Standard for Robotics &amp; Drones
+The <strong>Power of 10</strong> rules were originally created by Gerard J. Holzmann at NASA's Jet Propulsion Laboratory (JPL) to write code for spacecraft and Mars rovers.</p>
+<p>In a spacecraft or a flying drone, you cannot press <code>Ctrl+C</code> to restart the program if it crashes. If your software freezes, panics, or runs out of memory, physical hardware breaks.</p>
+<p>Below are the <strong>10 Golden Rules</strong> adapted specifically for <strong>Embedded Rust</strong>, explaining why each rule exists and how to follow it in simple words.</p>
+</blockquote>
+<hr />
+<h3 id="1-eliminate-all-recursion">1. Eliminate All Recursion<a class="headerlink" href="#1-eliminate-all-recursion" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The Rule:</strong> Never write a function that calls itself.</li>
+<li><strong>Why this matters on hardware:</strong> Microcontrollers have very tiny memory (RAM), often only 32 KB to 256 KB. Every time a function calls itself, it consumes another chunk of stack memory. If recursion goes too deep—or loops infinitely because a sensor gave an unexpected reading—the stack overflows, crashes into your program data, and reboots or freezes the chip mid-flight.</li>
+<li><strong>In simple words:</strong> Replace all tree-walks, graph searches, and repeated calculations with standard iterative loops (<code>for</code> or <code>while</code>) using a fixed counter.</li>
+</ul>
+<hr />
+<h3 id="2-guarantee-fixed-upper-bounds-on-all-loops">2. Guarantee Fixed Upper Bounds on All Loops<a class="headerlink" href="#2-guarantee-fixed-upper-bounds-on-all-loops" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The Rule:</strong> Every loop must have an absolute maximum number of times it can repeat.</li>
+<li><strong>Why this matters on hardware:</strong> A balancing robot or drone must check sensors and adjust motors at a precise frequency (e.g., 1,000 times every second). If a loop hangs waiting for a slow sensor or broken wire, the motor controls freeze and the robot loses balance.</li>
+<li><strong>In simple words:</strong> Never write an unbounded <code>while !sensor_ready()</code> loop. Always write:
+  <div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1">// Safe bounded loop: try at most 100 times, then time out</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">for</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="mi">0</span><span class="o">..</span><span class="n">MAX_RETRIES</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">sensor</span><span class="p">.</span><span class="n">is_ready</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">        </span><span class="k">break</span><span class="p">;</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">}</span>
+</span></code></pre></div>
+  Or use the <code>.take(N)</code> iterator adapter on streams.</li>
+</ul>
+<hr />
+<h3 id="3-ban-dynamic-heap-allocation-after-boot-no_std-heapless">3. Ban Dynamic Heap Allocation After Boot (<code>#![no_std]</code> + <code>heapless</code>)<a class="headerlink" href="#3-ban-dynamic-heap-allocation-after-boot-no_std-heapless" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The Rule:</strong> Never use dynamic heap memory allocators (<code>malloc</code>, <code>free</code>, standard <code>Vec</code>, or <code>String</code>) during normal operation.</li>
+<li><strong>Why this matters on hardware:</strong> On your laptop, you can ask the operating system for more RAM anytime. Microcontrollers have no OS and very little RAM. Allocating and freeing memory repeatedly creates <strong>memory fragmentation</strong> (like Swiss cheese with lots of tiny holes). Eventually, a memory allocation fails, causing an instant panic and crash.</li>
+<li><strong>In simple words:</strong></li>
+<li>Compile strictly with <code>#![no_std]</code>.</li>
+<li>Decide the maximum capacity for all queues, sensor buffers, and packet frames at compile time.</li>
+<li>Use fixed-size arrays (<code>[u8; 64]</code>) or static crates like <code>heapless</code> (e.g., <code>heapless::Vec&lt;u8, 64&gt;</code>), which allocate all memory safely on the stack or in static memory once at startup.</li>
+</ul>
+<hr />
+<h3 id="4-keep-functions-modular-and-under-60-lines">4. Keep Functions Modular and Under 60 Lines<a class="headerlink" href="#4-keep-functions-modular-and-under-60-lines" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The Rule:</strong> Keep every function under 60 lines of code.</li>
+<li><strong>Why this matters:</strong> A 60-line function fits on a single laptop screen without scrolling. You can easily see all inputs, internal logic, and return values at a glance.</li>
+<li><strong>In simple words:</strong> A function should do <strong>only one dedicated job</strong>. If a function is getting long or doing multiple things (like reading a sensor, calculating a PID value, and commanding a motor), break it into separate, focused helper functions.</li>
+</ul>
+<hr />
+<h3 id="5-zero-panics-treat-panicking-code-as-a-compilation-bug">5. Zero Panics — Treat Panicking Code as a Compilation Bug<a class="headerlink" href="#5-zero-panics-treat-panicking-code-as-a-compilation-bug" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The Rule:</strong> A panic in production embedded code is considered a critical bug.</li>
+<li><strong>Why this matters on hardware:</strong> On a laptop, a panic displays a red error message in your terminal. On a drone flying at 30 km/h, a panic turns off the CPU, disables PWM motor signals, and sends the drone into freefall.</li>
+<li><strong>In simple words:</strong></li>
+<li>Never use standard <code>panic!</code>, <code>assert!</code>, or unchecked direct array indexing like <code>data[i]</code> (if <code>i</code> is out of bounds, Rust panics).</li>
+<li>Use safe accessors like <code>data.get(i)</code> which returns <code>Option&lt;&amp;T&gt;</code>.</li>
+<li>Use safe math operations: <code>.checked_add()</code>, <code>.saturating_add()</code>, or <code>.saturating_mul()</code> so number overflows never trigger a panic.</li>
+<li>Use the <strong>Typestate Pattern</strong> to ensure invalid hardware states are impossible to represent at compile time.</li>
+<li>Every fallible hardware operation must return an explicit <code>Result&lt;T, E&gt;</code>.</li>
+</ul>
+<hr />
+<h3 id="6-minimize-variable-scopes-and-enforce-immutability">6. Minimize Variable Scopes and Enforce Immutability<a class="headerlink" href="#6-minimize-variable-scopes-and-enforce-immutability" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The Rule:</strong> Variables must default to immutable (<code>let</code>), with variable lifespans kept as short as possible.</li>
+<li><strong>Why this matters:</strong> If a variable can be changed (<code>mut</code>) throughout an entire 100-line function, any line of code can accidentally overwrite critical sensor data.</li>
+<li><strong>In simple words:</strong></li>
+<li>Always use <code>let</code> by default.</li>
+<li>Only use <code>let mut</code> when you genuinely need to mutate a value, and keep it confined inside the smallest possible code block <code>{ ... }</code>.</li>
+<li>Use block expressions and <strong>variable shadowing</strong> to discard intermediate calculations as soon as you are done with them.</li>
+</ul>
+<hr />
+<h3 id="7-zero-unchecked-returns-denyunused_must_use-no-unwrap">7. Zero Unchecked Returns (<code>#![deny(unused_must_use)]</code> &amp; No <code>.unwrap()</code>)<a class="headerlink" href="#7-zero-unchecked-returns-denyunused_must_use-no-unwrap" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The Rule:</strong> You must explicitly check and handle the return value of every function.</li>
+<li><strong>Why this matters on hardware:</strong> If an I2C sensor read fails and your code ignores the returned error, your control loop acts on stale or garbage data. If you use <code>.unwrap()</code> and an error occurs, the chip crashes.</li>
+<li><strong>In simple words:</strong></li>
+<li>Add <code>#![deny(unused_must_use)]</code> at the top of your crate so the compiler refuses to compile if you ignore any <code>Result</code>.</li>
+<li><strong>Never use <code>.unwrap()</code> or <code>.expect()</code></strong> in flight or robot code.</li>
+<li>Always handle both outcomes explicitly using <code>match</code>, <code>if let</code>, or the question-mark <code>?</code> operator.</li>
+</ul>
+<hr />
+<h3 id="8-restrict-macro-metaprogramming-in-safety-paths">8. Restrict Macro Metaprogramming in Safety Paths<a class="headerlink" href="#8-restrict-macro-metaprogramming-in-safety-paths" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The Rule:</strong> Do not use complex recursive macros or procedural macros in real-time control loops.</li>
+<li><strong>Why this matters:</strong> Fancy macros hide code generation behind the scenes, making it difficult to understand what machine instructions the CPU is actually executing.</li>
+<li><strong>In simple words:</strong> Keep your code plain, readable, and predictable. Replace complex macros with standard functions, compile-time functions (<code>const fn</code>), and traits.</li>
+</ul>
+<hr />
+<h3 id="9-pure-safe-rust-only-forbidunsafe_code">9. Pure Safe Rust Only (<code>#![forbid(unsafe_code)]</code>)<a class="headerlink" href="#9-pure-safe-rust-only-forbidunsafe_code" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The Rule:</strong> Ban <code>unsafe</code> blocks from application, navigation, and control logic.</li>
+<li><strong>Why this matters:</strong> Safe Rust guarantees memory safety and prevents dangling pointers, buffer overflows, and data races at compile time. Using <code>unsafe</code> disables these guarantees.</li>
+<li><strong>In simple words:</strong></li>
+<li>Place <code>#![forbid(unsafe_code)]</code> at the top of your robotics control files.</li>
+<li>Raw hardware access (reading/writing hardware registers via memory addresses) should only happen inside tested, certified hardware libraries (HALs and PACs).</li>
+<li>Your main robot brain, state machines, and flight logic should be 100% pure Safe Rust.</li>
+<li>Prefer static dispatch (generics and traits) over dynamic dispatch (<code>&amp;dyn Trait</code>) to avoid slow vtable lookups and indirect function calls.</li>
+</ul>
+<hr />
+<h3 id="10-enforce-zero-warning-compilation-and-formal-verification">10. Enforce Zero-Warning Compilation and Formal Verification<a class="headerlink" href="#10-enforce-zero-warning-compilation-and-formal-verification" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The Rule:</strong> Every build must compile with zero warnings, and critical algorithms should be verified with automated tools.</li>
+<li><strong>Why this matters:</strong> A compiler warning is a bug waiting to happen. In robotics, small oversights cause physical damage.</li>
+<li><strong>In simple words:</strong></li>
+<li>Treat all compiler warnings as errors by configuring workspace lints:
+    <div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="cp">#![deny(warnings)]</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="cp">#![warn(clippy::pedantic)]</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="cp">#![warn(clippy::nursery)]</span>
+</span></code></pre></div></li>
+<li>Use automated verification tools:<ul>
+<li><strong>Clippy (<code>cargo clippy</code>):</strong> Catches non-idiomatic code, inefficient patterns, and potential bugs.</li>
+<li><strong>Kani Rust Verifier:</strong> A mathematical model-checking tool that proves your code will never panic or overflow under any possible input.</li>
+<li><strong>Miri (<code>cargo miri</code>):</strong> An interpreter that checks for undefined behavior, memory leaks, and alignment errors.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3 id="the-safety-critical-embedded-rust-starter-template">The Safety-Critical Embedded Rust Starter Template<a class="headerlink" href="#the-safety-critical-embedded-rust-starter-template" title="Permanent link">&para;</a></h3>
+<p>Putting all 10 rules together, every robust bare-metal robotics project starts with this compiler configuration at the root of <code>main.rs</code>:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">#![no_std]</span><span class="w">                 </span><span class="c1">// Rule 3: No dynamic heap OS runtime</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="cp">#![no_main]</span><span class="w">                </span><span class="c1">// Standard: Hardware boots directly to our entry point</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="cp">#![forbid(unsafe_code)]</span><span class="w">    </span><span class="c1">// Rule 9: Zero unsafe code in application logic</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="cp">#![deny(warnings)]</span><span class="w">         </span><span class="c1">// Rule 10: Zero compiler warnings tolerated</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="cp">#![deny(unused_must_use)]</span><span class="w">  </span><span class="c1">// Rule 7: Every Result and error must be checked</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="cp">#![warn(clippy::pedantic)]</span><span class="w"> </span><span class="c1">// Rule 10: Enable the strictest linter checks</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="k">use</span><span class="w"> </span><span class="n">core</span><span class="p">::</span><span class="n">panic</span><span class="p">::</span><span class="n">PanicInfo</span><span class="p">;</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="cp">#[panic_handler]</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="k">fn</span><span class="w"> </span><span class="nf">panic</span><span class="p">(</span><span class="n">_info</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">PanicInfo</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="o">!</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span><span class="c1">// In safety-critical robotics:</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">    </span><span class="c1">// 1. Instantly cut power to all motors and actuators (failsafe).</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">    </span><span class="c1">// 2. Set status LED to solid red.</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">    </span><span class="c1">// 3. Halt the CPU in an infinite loop or trigger a controlled watchdog reboot.</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">    </span><span class="k">loop</span><span class="w"> </span><span class="p">{}</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="p">}</span>
+</span></code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href=".." class="md-footer__link md-footer__link--prev" aria-label="Previous: Machine Learning Vault">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Machine Learning Vault
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="unit_01_foundations/ch01_syntax_and_execution_model/" class="md-footer__link md-footer__link--next" aria-label="Next: Chapter 1: From Java/Python to Rust: Syntax &amp;amp; Execution Model">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Chapter 1: From Java/Python to Rust: Syntax &amp; Execution Model
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/devkumar70401" target="_blank" rel="noopener" title="GitHub Profile" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="mailto:devkumar70401@gmail.com" target="_blank" rel="noopener" title="Email Devendra" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M536.4-26.3c9.8-3.5 20.6-1 28 6.3s9.8 18.2 6.3 28l-178 496.9c-5 13.9-18.1 23.1-32.8 23.1-14.2 0-27-8.6-32.3-21.7l-64.2-158c-4.5-11-2.5-23.6 5.2-32.6l94.5-112.4c5.1-6.1 4.7-15-.9-20.6s-14.6-6-20.6-.9l-112.4 94.3c-9.1 7.6-21.6 9.6-32.6 5.2L38.1 216.8c-13.1-5.3-21.7-18.1-21.7-32.3 0-14.7 9.2-27.8 23.1-32.8z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.path", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+        <script src="../javascripts/katex.js"></script>
+      
+        <script src="https://unpkg.com/katex@0/dist/katex.min.js"></script>
+      
+        <script src="https://unpkg.com/katex@0/dist/contrib/auto-render.min.js"></script>
+      
+    
+  </body>
+</html>
