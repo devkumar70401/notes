@@ -1027,5 +1027,451 @@ Physical Microcontroller RAM:
 
 ---
 
+## 1.4 Primitive Types: Fixed-width Integers, Floats, Booleans, and Chars
+
+In high-level languages like Python or JavaScript, you rarely think about how many bits a number occupies in physical silicon. You write `x = 100` or `let x = 100`, and the runtime engine handles memory allocation behind the scenes.
+
+In **Bare-Metal Embedded Rust**, every single bit matters. When you configure a hardware timer, read an ADC (Analog-to-Digital Converter), or toggle an LED on a microcontroller, your code directly manipulates physical registers. Selecting the wrong type can cause silent bugs, data corruption, or catastrophic failures.
+
+---
+
+### 1. Fixed-Width Integers: Why Embedded C Got It Wrong
+
+In C, the size of basic types like `int` or `long` is **implementation-defined**:
+* On an 8-bit AVR microcontroller (e.g., Arduino Uno), `int` is **16 bits** (2 bytes).
+* On a 32-bit ARM Cortex-M microcontroller (e.g., STM32), `int` is **32 bits** (4 bytes).
+* On a 64-bit x86/x64 PC, `long` might be 32 bits or 64 bits depending on the operating system.
+
+This ambiguity has historically caused severe bugs when porting software between microcontrollers.
+
+**Rust eliminates integer ambiguity.** Every integer type explicitly declares its signedness and exact bit width:
+
+```text
+ ┌─────────────────── Unsigned (Zero or Positive only: 0 to 2ⁿ - 1)
+ │    ┌────────────── Signed Two's Complement (-2ⁿ⁻¹ to 2ⁿ⁻¹ - 1)
+ ▼    ▼
+ u8   i8   ───  8 bits  (1 byte)
+u16  i16   ─── 16 bits  (2 bytes)
+u32  i32   ─── 32 bits  (4 bytes)
+u64  i64   ─── 64 bits  (8 bytes)
+u128 i128  ─── 128 bits (16 bytes)
+usize isize ── Pointer-sized (32 bits on Cortex-M, 64 bits on x86_64)
+```
+
+```text
+Physical Memory Footprint Comparison:
+┌──────────┬────────────────────────┬─────────────────────────────────────────┐
+│ Type     │ Size in Hardware RAM   │ Valid Numeric Range                     │
+├──────────┼────────────────────────┼─────────────────────────────────────────┤
+│ u8       │ 1 Byte  (8 bits)       │ 0 to 255                                │
+│ i8       │ 1 Byte  (8 bits)       │ -128 to +127                            │
+│ u16      │ 2 Bytes (16 bits)      │ 0 to 65,535                             │
+│ i16      │ 2 Bytes (16 bits)      │ -32,768 to +32,767                      │
+│ u32      │ 4 Bytes (32 bits)      │ 0 to 4,294,967,295                      │
+│ i32      │ 4 Bytes (32 bits)      │ -2,147,483,648 to +2,147,483,647        │
+│ u64      │ 8 Bytes (64 bits)      │ 0 to 18,446,744,073,709,551,615         │
+│ usize    │ Target architecture    │ 32-bit (0..4.29B) or 64-bit             │
+└──────────┴────────────────────────┴─────────────────────────────────────────┘
+```
+
+---
+
+### 2. Hardware Mapping: Which Type to Use in Robotics?
+
+In firmware and robotics, choose integer types based on physical hardware interfaces:
+
+1. **`u8` (The Byte Worker)**:
+   * **Use Cases**: Serial communication bytes (UART, SPI, I2C), 8-bit PWM motor duty cycle (`0` = stopped, `255` = 100% full throttle), color channels (RGB 0..255).
+   * **Why Unsigned?** A byte received over a radio link or GPS cannot be negative.
+
+2. **`u16` (The Sensor & Timer Specialist)**:
+   * **Use Cases**: Microcontroller ADC readings (typical microcontrollers feature 10-bit or 12-bit ADCs yielding values from `0` to `4095`), 16-bit hardware timer reload values (`ARR`).
+
+3. **`u32` (The Architectural Standard)**:
+   * **Use Cases**: Memory-Mapped I/O (MMIO) hardware registers (`GPIOx_ODR`, `RCC_CR`), 32-bit hardware timers, physical memory addresses.
+   * **Note**: On 32-bit ARM Cortex-M processors, `u32` is native. Operations on `u32` execute in a single CPU clock cycle.
+
+4. **`i16` / `i32` (Sensors with Direction)**:
+   * **Use Cases**: 3-axis Accelerometer and Gyroscope (IMU) readings. Forward acceleration is positive, backward acceleration is negative. Temperature sensors reading below $0^\circ\text{C}$.
+
+5. **`usize` / `isize` (Memory Offsets and Indices)**:
+   * **Rule**: In Rust, arrays and slices **can only be indexed using `usize`**.
+   * On a 32-bit microcontroller (like STM32), `usize` is automatically 32 bits. On your 64-bit PC, it is automatically 64 bits.
+
+```rust
+// Embedded Example: Practical Variable Declarations
+let motor_pwm: u8 = 180;             // Motor speed: 180 / 255 (~70% duty cycle)
+let raw_adc: u16 = 3120;             // 12-bit ADC reading (range: 0 to 4095)
+let cpu_cycles: u32 = 168_000_000;   // 168 MHz clock ticks in 1 second
+let imu_accel_z: i16 = -981;         // -9.81 m/s² (gravity acting downward)
+let buffer_index: usize = 0;         // Array index
+```
+
+> [!TIP]
+> **Readability with Numeric Underscores**: Rust allows underscores `_` inside numbers as visual separators (e.g., `168_000_000` or `0b1111_0000_u8`). They have no impact on execution.
+
+---
+
+### 3. The Integer Overflow Pitfall & Safe Arithmetic
+
+What happens when an 8-bit unsigned integer holding `255` has `1` added to it?
+In physical hardware, $255 + 1 = 256$ (`0b1_0000_0000`). Since only 8 bits can fit in the storage location, the 9th bit is dropped, wrapping the value back to `0`.
+
+```text
+The 8-Bit Overflow Problem:
+  255  =  1 1 1 1 1 1 1 1
++   1  =  0 0 0 0 0 0 0 1
+─────────────────────────
+  256  = [1] 0 0 0 0 0 0 0 0  ──► The 9th bit overflows the byte!
+          │
+          └─ Lost! In an 8-bit register, the value silently becomes 0!
+```
+
+> [!WARNING]
+> **Real-World Case: Ariane 5 Flight 501**  
+> On June 4, 1996, the Ariane 5 rocket exploded 37 seconds after launch. A 64-bit floating-point value representing horizontal velocity was cast into a 16-bit signed integer (`i16`). The value exceeded 32,767, triggering an unhandled hardware overflow exception that crashed the flight computer and caused self-destruction.
+
+#### How Rust Manages Overflow
+
+Rust implements a dual-mode strategy for arithmetic overflow:
+
+1. **Debug Mode (`cargo build`)**:
+   Rust injects runtime overflow checks. If an overflow occurs, the program triggers an immediate `panic!` to prevent silent memory corruption:
+   ```text
+   thread 'main' panicked at 'attempt to add with overflow'
+   ```
+2. **Release Mode (`cargo build --release`)**:
+   To conserve clock cycles on resource-constrained embedded targets, runtime checks are stripped by default, and values wrap using two's complement (`255u8 + 1 == 0`).
+
+#### Mission-Critical Safe Arithmetic Methods
+
+For safety-critical embedded systems (such as motor control or flight avionics), relying on implicit overflow or panics is unacceptable. Rust provides four explicit arithmetic methods:
+
+```text
+┌─────────────────────────┬─────────────────────────────────────────────────────┐
+│ Method                  │ Behavior                                            │
+├─────────────────────────┼─────────────────────────────────────────────────────┤
+│ .checked_add(x)         │ Returns Option<T>: Some(val) or None on overflow    │
+│ .saturating_add(x)      │ Clamps at MAX or MIN boundary (never overflows)     │
+│ .wrapping_add(x)        │ Intentionally wraps around (modulo 2ⁿ)              │
+│ .overflowing_add(x)     │ Returns a tuple: (result, did_overflow_bool)        │
+└─────────────────────────┴─────────────────────────────────────────────────────┘
+```
+
+#### Practical Code Demonstrations
+
+```rust
+// 1. Saturating Math (Ideal for Motor Speed and Audio Volume)
+// If motor throttle is at 250 and we try to add 20, clamp at 255 max:
+let current_speed: u8 = 250;
+let commanded_speed = current_speed.saturating_add(20);
+// commanded_speed is clamped to 255 (does NOT wrap to 14, motor stays safe!)
+
+// 2. Checked Math (Ideal for Safety-Critical Validation)
+let sensor_val: u8 = 250;
+match sensor_val.checked_add(10) {
+    Some(val) => {
+        // Safe to use 'val'
+    }
+    None => {
+        // Overflow detected! Trigger safety shutdown or warning flag
+    }
+}
+
+// 3. Wrapping Math (Ideal for Rolling Timers & Hash Functions)
+let hardware_tick: u8 = 255;
+let next_tick = hardware_tick.wrapping_add(1);
+// next_tick is explicitly 0 (intentional rollover)
+```
+
+---
+
+### 4. Floating-Point Types (`f32`, `f64`) & The Microcontroller Reality
+
+Rust provides two IEEE 754 floating-point types:
+* **`f32`**: 32-bit single-precision float (~6–9 decimal digits of precision).
+* **`f64`**: 64-bit double-precision float (~15–17 decimal digits of precision). The default float literal type in Rust.
+
+```text
+32-Bit Float IEEE 754 Silicon Layout:
+┌───────┬─────────────────┬───────────────────────────────────────────┐
+│ 1 bit │ 8 bits          │ 23 bits                                   │
+│ Sign  │ Exponent        │ Mantissa / Fraction                       │
+└───────┴─────────────────┴───────────────────────────────────────────┘
+```
+
+#### The Bare-Metal Floating Point Caveat
+
+Microcontroller hardware handles floating-point math differently depending on architecture:
+
+1. **Chips without an FPU (Floating Point Unit)** (e.g., ARM Cortex-M0, Cortex-M3):
+   * These processors cannot execute float instructions in hardware.
+   * Every float operation (`+`, `-`, `*`, `/`) is emulated through hundreds of integer software instructions.
+   * **Performance Impact**: A float multiplication can take 50 to 100 clock cycles instead of 1 cycle, significantly degrading real-time control loops.
+
+2. **Chips with a Single-Precision FPU** (e.g., ARM Cortex-M4F, STM32F401):
+   * `f32` operations execute directly in the hardware FPU in **1 single clock cycle**.
+   * **`f64` operations must still be emulated in software**, running up to 30× slower.
+
+> [!IMPORTANT]
+> **Embedded Rule of Thumb**:
+> * Always annotate float literals on 32-bit microcontrollers as `f32` (e.g., `3.14159_f32`), never plain `3.14159` (which defaults to `f64`).
+> * Where possible, use **Fixed-Point Integer Math**: store millivolts (`3300_u16`) instead of volts (`3.3_f32`), or millimeters (`1540_u32`) instead of meters (`1.54_f32`).
+
+---
+
+### 5. Booleans (`bool`)
+
+* **Values**: `true` or `false`.
+* **Hardware Size**: Exactly **1 byte (8 bits)** in RAM, **not** 1 single bit!
+  * **Why?** Microcontroller architectures address memory by whole bytes, not individual bits. The smallest directly addressable unit in physical RAM is an 8-bit memory cell.
+* **Embedded Role**: Representing digital logic levels (HIGH/LOW), button press states, and peripheral enable flags.
+
+```rust
+let is_door_open: bool = true;
+let is_motor_running: bool = false;
+```
+
+---
+
+### 6. Characters (`char`) vs Bytes (`u8`)
+
+A frequent source of bugs for developers transitioning from C to Rust:
+
+* In **C**: a `char` is an 8-bit byte (`sizeof(char) == 1`).
+* In **Rust**: a `char` is a **Unicode Scalar Value** and is always **4 bytes (32 bits)**!
+  * A Rust `char` can store emojis (`'🦀'`), Chinese glyphs (`'字'`), or ASCII (`'A'`), requiring 4 bytes of storage.
+
+```rust
+let unicode_char: char = 'A'; // 4 BYTES in RAM (0x00000041)
+let ascii_byte: u8 = b'A';    // 1 BYTE in RAM  (0x41)
+```
+
+```text
+Memory Representation Comparison:
+Rust char 'A' (4 Bytes):
+┌───────────┬───────────┬───────────┬───────────┐
+│   0x00    │   0x00    │   0x00    │   0x41    │
+└───────────┴───────────┴───────────┴───────────┘
+
+Rust Byte literal b'A' (1 Byte):
+┌───────────┐
+│   0x41    │
+└───────────┘
+```
+
+> [!CAUTION]
+> In embedded communications (UART, SPI, I2C, GPS NMEA parsing), **never use `char` arrays**. Always use byte literals (`b'A'`) and byte slices (`[u8]`). Using `char` wastes $4\times$ more RAM on your microcontroller!
+
+---
+
+### 7. Type Casting: The Silent Truncation Trap (`as` vs. `TryFrom`)
+
+In C, the compiler silently promotes and converts types behind your back:
+```c
+// In C (Dangerous):
+uint16_t adc_reading = 1000;
+uint8_t small_val = adc_reading; // Compiles silently! Chops off high bits!
+```
+
+In Rust, **implicit type conversion is 100% forbidden**:
+```rust
+let adc_reading: u16 = 1000;
+let small_val: u8 = adc_reading; // ❌ COMPILE ERROR! Mismatched types!
+```
+
+#### The Danger of the `as` Keyword
+To force a conversion, Rust gives you the `as` operator. But in embedded systems, **`as` is a blunt chainsaw**:
+
+```rust
+let adc_reading: u16 = 1000;
+let small_val = adc_reading as u8; // ⚠️ SILENT TRUNCATION!
+```
+
+```text
+What physically happens in silicon:
+  1000 in binary (16 bits):   0000 0011  1110 1000
+                              └────────┘ └────────┘
+                              High Byte   Low Byte
+                                  │           │
+         `as u8` simply THROWS ───┘           │
+          AWAY the top 8 bits!                ▼
+  Result in `small_val`:                 1110 1000  =  232 in decimal!
+```
+
+Your sensor read `1000`, but your motor controller thinks it's `232`!
+
+#### The Safety-Critical Solution: `TryFrom`
+Instead of blindly truncating with `as`, mission-critical Rust uses `TryFrom`:
+
+```rust
+use core::convert::TryFrom;
+
+let adc_reading: u16 = 1000;
+
+match u8::try_from(adc_reading) {
+    Ok(safe_byte) => {
+        // Only executes if adc_reading was between 0 and 255
+    }
+    Err(_) => {
+        // Gracefully handles the out-of-range error instead of corrupting data!
+    }
+}
+```
+
+> [!CAUTION]
+> **NASA Rule of Thumb**: Use `as` only when **widening** a type (e.g., `my_u8 as u32` is always 100% safe because 8 bits easily fit in 32 bits). **Never** use `as` to narrow a type (`u32 as u8`) unless you have mathematically proven it cannot exceed 255. Otherwise, use `TryFrom`.
+
+---
+
+### 8. Literal Suffixes & The Compiler's Default Traps
+
+When you write a plain number in Rust without specifying a type, the compiler assigns default types:
+* Any plain integer (e.g., `42`) defaults to **`i32`** (signed 32-bit).
+* Any plain float (e.g., `3.14`) defaults to **`f64`** (64-bit double precision).
+
+#### Why this is bad on an 8-bit or 32-bit Microcontroller:
+* If you write `let x = 1.5;` on an ARM Cortex-M4 microcontroller, the chip's single-precision hardware FPU **cannot process it**. The chip is forced to pull in massive software emulation libraries, consuming valuable Flash storage and running up to $30\times$ slower.
+
+#### The Solution: Explicit Type Suffixes
+You can glue the exact type directly onto the number:
+
+```rust
+// Integer literal suffixes:
+let duty_cycle = 200_u8;          // Explicitly 1 byte (u8)
+let timer_ticks = 65000_u16;      // Explicitly 2 bytes (u16)
+let address = 0x4002_1000_u32;    // Explicitly 4 bytes (u32)
+
+// Floating-point literal suffixes:
+let target_voltage = 3.3_f32;     // Single-precision (Hardware FPU native!)
+```
+
+#### Supported Base Notations for Hardware Registers
+Microcontrollers require configuring registers using hex, binary, and octal:
+```rust
+let hex_mask: u8   = 0xFF;         // Hexadecimal (255)
+let bin_flags: u8  = 0b1010_0101;  // Binary (easy to see individual bit flags)
+let octal_val: u16 = 0o777;        // Octal (511)
+let ascii_byte: u8 = b'R';         // Byte literal for ASCII character 'R' (82)
+```
+
+---
+
+### 9. Compound Primitives: Tuples and Fixed-Size Arrays
+
+Rust categorizes **Tuples** and **Fixed-Size Arrays** as primitive types.
+
+#### A. Tuples `(T1, T2, ...)`
+A tuple groups together multiple values of **different types** into a single compound value with a fixed length:
+
+```rust
+// GPS Coordinates: (Latitude f32, Longitude f32, Satellites Connected u8, Fix Valid bool)
+let gps_packet: (f32, f32, u8, bool) = (28.6139_f32, 77.2090_f32, 9_u8, true);
+
+// Accessing individual fields using dot notation:
+let lat = gps_packet.0;
+let is_valid = gps_packet.3;
+
+// Destructuring a tuple:
+let (latitude, longitude, sat_count, fix_ok) = gps_packet;
+```
+
+```text
+Physical RAM Memory Layout of gps_packet:
+┌──────────────┬──────────────┬────────┬────────┬─────────────────────────┐
+│ f32 (4 bytes)│ f32 (4 bytes)│ u8 (1B)│bool(1B)│ 2 bytes padding         │
+│ Latitude     │ Longitude    │ Sats   │ Valid  │ (for 32-bit alignment)  │
+└──────────────┴──────────────┴────────┴────────┴─────────────────────────┘
+Total: 12 bytes allocated directly on the Stack. Zero heap usage!
+```
+
+#### B. Fixed-Size Arrays `[T; N]`
+An array groups multiple values of the **exact same type** stored contiguously in memory:
+
+```rust
+// An array of 4 motor PWM values:
+let motor_speeds: [u8; 4] = [120, 150, 150, 120];
+
+// Accessing elements:
+let front_left = motor_speeds[0];
+```
+
+> [!IMPORTANT]
+> **Safety First: Bounds Checking**:  
+> If your code tries to access `motor_speeds[4]` (out of bounds), Rust **prevents memory corruption**:
+> * At compile time: If the index is a constant, compilation fails immediately with `index out of bounds`.
+> * At runtime: If the index is dynamic, Rust checks the bound and panics safely before reading illegal RAM.
+
+---
+
+### 10. The Unit Type `()`: The Zero-Sized Type (ZST)
+
+What type has no value at all? The **Unit Type**, written as `()`.
+
+* A tuple with zero elements: `()`.
+* Its physical size in memory is **0 bytes** (`core::mem::size_of::<()>() == 0`).
+* In hardware silicon, **it takes up zero RAM and zero registers**.
+
+```rust
+// When a function doesn't return anything:
+fn enable_led() -> () {
+    // Turning on hardware pin...
+}
+
+// Writing `-> ()` is optional; Rust infers it automatically:
+fn toggle_buzzer() {
+    // Returns `()` implicitly
+}
+```
+
+In robotics, unit types and Zero-Sized Types (ZSTs) are used heavily in the **Typestate Pattern** (Chapter 8) to create compile-time hardware safety locks that compile down to absolute zero overhead in machine code.
+
+---
+
+### 11. Built-in Hardware Helper Methods on Primitives
+
+Rust primitives have built-in methods designed specifically for low-level systems and bit manipulation:
+
+```rust
+let flags: u8 = 0b1010_0001;
+
+// 1. How many bits are set to 1? (Population count / Hamming weight)
+let active_sensors = flags.count_ones(); // Returns 3
+
+// 2. How many leading zeros? (Priority encoding)
+let priority = flags.leading_zeros();    // Returns 0 (MSB is 1)
+
+// 3. Endianness swap for Network / Radio packets:
+let network_data: u16 = 0x1234;
+let le_data = network_data.swap_bytes(); // Becomes 0x3412
+
+// 4. Min / Max Constants:
+let max_duty = u8::MAX;  // 255
+let min_duty = u8::MIN;  // 0
+```
+
+---
+
+### 12. Chapter Summary: Embedded Type Selection Guide
+
+```text
+┌────────────────────┬──────────────┬──────────────────────────────────────────┐
+│ Scenario           │ Type         │ Reason                                   │
+├────────────────────┼──────────────┼──────────────────────────────────────────┤
+│ UART / SPI Data    │ u8 / [u8]    │ Raw byte-stream communication            │
+│ PWM Motor Speed    │ u8           │ Standard 0..255 (0%..100%) duty cycle    │
+│ ADC Sensor Reading │ u16          │ Native fit for 10-bit / 12-bit / 16-bit  │
+│ Hardware Registers │ u32          │ Standard ARM Cortex-M 32-bit MMIO        │
+│ IMU Accelerometer  │ i16          │ Signed directional G-force values        │
+│ Array Indexing     │ usize        │ Matches memory address width             │
+│ Math Calculations  │ f32          │ Single-precision hardware FPU supported  │
+│ Digital Logic Pin  │ bool         │ Clean true (HIGH) / false (LOW) logic    │
+│ No Return Value    │ ()           │ Zero-Sized Type (0 bytes memory)         │
+└────────────────────┴──────────────┴──────────────────────────────────────────┘
+```
+
+---
+
+
 
 
