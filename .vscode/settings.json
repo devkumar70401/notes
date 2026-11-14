@@ -11,14 +11,14 @@
         "**/*.pages": true,
         "mkdocs.yml": true,
         "requirements.txt": true,
-        "README.md":true
+        "README.md": true,
+        ".docs": true,
+        "site": true
     },
 
     // Autosave
     "files.autoSave": "afterDelay",
 
-   // Hiding the sidebar opened when splitting the terminal
-   "terminal.integrated.tabs.enabled":false,
-
-   // 
+    // Hiding the sidebar opened when splitting the terminal
+    "terminal.integrated.tabs.enabled": false
 }
