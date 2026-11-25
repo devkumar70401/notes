@@ -35,7 +35,7 @@
   * 2.4 Aliasing XOR Mutability: How Rust Guarantees Single Hardware Access at Compile Time
   * 2.5 Lifetimes Demystified: Static Data vs. Stack Data in Embedded Contexts
   * 2.6 The `Copy` vs. `Clone` Traits
-* **Chapter 3: Low-Level Types, Bit Manipulation & Hardware Registers**
+* **Chapter 3: [Low-Level Types, Bit Manipulation & Hardware Registers](unit_01_foundations/ch03_low_level_types_and_registers.md)**
   * 3.1 Hexadecimal, Binary Literals, and Byte Slices (`&[u8]`)
   * 3.2 Bitwise Operations: AND (`&`), OR (`|`), XOR (`^`), NOT (`!`), Shifts (`<<`, `>>`)
   * 3.3 Register Bitmasking: Setting, Clearing, and Toggling Individual Bits

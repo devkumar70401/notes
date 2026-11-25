@@ -30,3 +30,6 @@ archive/
 
 .obsidian/
 
+# Rust build artifacts
+target/
+

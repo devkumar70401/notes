@@ -20,6 +20,13 @@
     // Autosave
     "files.autoSave": "afterDelay",
 
+    // File Nesting: Nest PDFs under their source markdown files for a clean explorer
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.expand": false,
+    "explorer.fileNesting.patterns": {
+        "*.md": "${capture}.pdf"
+    },
+
     // Hiding the sidebar opened when splitting the terminal
     "terminal.integrated.tabs.enabled": false
 }

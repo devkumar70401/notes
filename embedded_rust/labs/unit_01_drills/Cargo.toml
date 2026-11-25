@@ -1,0 +1,13 @@
+[package]
+name = "unit_01_drills"
+version = "0.1.0"
+edition = "2024"
+description = "Compiler-verified #![no_std] drills for Embedded Rust Unit 1 (Chapters 1-3)"
+
+[lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"

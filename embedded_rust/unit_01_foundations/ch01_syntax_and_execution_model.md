@@ -1010,6 +1010,24 @@ $$\text{[ Value to repeat ; How many times ]}$$
 
 In robotics, **UART** (Serial) is the hardware communication wire that connects your microcontroller to a GPS module, Bluetooth, or your PC.
 
+> [!NOTE] What is UART? (The Robot's Voice & Ears)
+> **UART** stands for **Universal Asynchronous Receiver-Transmitter**.
+> It is the simplest and most fundamental serial communication protocol in hardware:
+> * **TX (Transmit Pin):** The pin the microcontroller uses to **speak** (send bytes out).
+> * **RX (Receive Pin):** The pin the microcontroller uses to **listen** (receive bytes in).
+> * **GND (Ground Pin):** The shared electrical ground reference.
+> 
+> ```text
+> ┌───────────────────────────┐                 ┌───────────────────────────┐
+> │ Microcontroller (Robot)   │    TX Wire      │ Your Laptop / GPS Sensor  │
+> │   [ TX (Transmit) Pin ]   │ ──────────────> │   [ RX (Receive) Pin ]    │
+> │                           │    RX Wire      │                           │
+> │   [ RX (Receive) Pin  ]   │ <────────────── │   [ TX (Transmit) Pin ]   │
+> │   [ GND (Ground) Pin  ]   │ ─────────────── │   [ GND (Ground) Pin  ]   │
+> └───────────────────────────┘                 └───────────────────────────┘
+> ```
+> Whenever you connect your robot to your laptop over USB to stream debug telemetry or wire a GPS / Bluetooth module to your board, you are using **UART** to exchange bytes!
+
 When the GPS sends data, characters arrive byte-by-byte into the chip.
 
 * The microcontroller needs a permanent parking lot in RAM to store those incoming bytes until your code is ready to read them.
@@ -1148,41 +1166,79 @@ Rust implements a dual-mode strategy for arithmetic overflow:
 For safety-critical embedded systems (such as motor control or flight avionics), relying on implicit overflow or panics is unacceptable. Rust provides four explicit arithmetic methods:
 
 ```text
-┌─────────────────────────┬─────────────────────────────────────────────────────┐
-│ Method                  │ Behavior                                            │
-├─────────────────────────┼─────────────────────────────────────────────────────┤
-│ .checked_add(x)         │ Returns Option<T>: Some(val) or None on overflow    │
-│ .saturating_add(x)      │ Clamps at MAX or MIN boundary (never overflows)     │
-│ .wrapping_add(x)        │ Intentionally wraps around (modulo 2ⁿ)              │
-│ .overflowing_add(x)     │ Returns a tuple: (result, did_overflow_bool)        │
-└─────────────────────────┴─────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                        THE 4 WAYS TO HANDLE OVERFLOW                   │
+├──────────────────────┬─────────────────────────────────────────────────┤
+│ Method               │ Plain English Meaning                           │
+├──────────────────────┼─────────────────────────────────────────────────┤
+│ 1. saturating_add    │ "Stick to the ceiling (Max) — never go past it" │
+│ 2. checked_add       │ "Ask permission first — return None if unsafe"  │
+│ 3. wrapping_add      │ "Roll over like a clock — 255 rolls back to 0"  │
+│ 4. overflowing_add   │ "Roll over, but raise a red alarm flag too"     │
+└──────────────────────┴─────────────────────────────────────────────────┘
 ```
 
-#### Practical Code Demonstrations
+#### Practical Code Demonstrations & Analogies
+
+##### 1. Saturating Math (`.saturating_add`) — The Volume Knob & Motor Throttle
+Think of the volume knob on a speaker or the speedometer on a car. If the maximum volume is 100, and you try to turn it up more, it doesn't break or reset to 0—it just stays pegged at **100**.
 
 ```rust
-// 1. Saturating Math (Ideal for Motor Speed and Audio Volume)
 // If motor throttle is at 250 and we try to add 20, clamp at 255 max:
 let current_speed: u8 = 250;
 let commanded_speed = current_speed.saturating_add(20);
 // commanded_speed is clamped to 255 (does NOT wrap to 14, motor stays safe!)
+```
+> [!TIP]
+> **Why use this in robotics?**  
+> Imagine your drone motor throttle is at 250 (out of 255 max). A wind gust hits, and the balance algorithm says: *"Add 20 more power!"*  
+> If it wrapped around, $250 + 20$ would become **14**, the motor would suddenly stop, and the drone would fall out of the sky!  
+> With `.saturating_add(20)`, the speed clamps safely at **255** (full power).
 
-// 2. Checked Math (Ideal for Safety-Critical Validation)
+##### 2. Checked Math (`.checked_add`) — Asking Permission First
+Before doing the math, Rust checks: *"Will this fit?"*
+* If it fits: it returns `Some(answer)`.
+* If it overflows: it returns `None` (empty).
+
+```rust
 let sensor_val: u8 = 250;
+
 match sensor_val.checked_add(10) {
     Some(val) => {
         // Safe to use 'val'
     }
     None => {
-        // Overflow detected! Trigger safety shutdown or warning flag
+        // OVERFLOW DETECTED!
+        // Trigger safety shutdown or warning flag without crashing the system
     }
 }
+```
+> [!NOTE]
+> **When to use this?**  
+> Ideal for external sensor data or radio packets where inputs are unpredictable. If a sensor sends corrupt or out-of-range values, `None` lets you catch the fault gracefully.
 
-// 3. Wrapping Math (Ideal for Rolling Timers & Hash Functions)
+##### 3. Wrapping Math (`.wrapping_add`) — The Wall Clock & Hardware Timers
+Think of a 12-hour wall clock: after 12:00 comes 1:00. Or a car's odometer: after 999,999 km, it rolls over to 000,000.
+
+```rust
 let hardware_tick: u8 = 255;
 let next_tick = hardware_tick.wrapping_add(1);
 // next_tick is explicitly 0 (intentional rollover)
 ```
+> [!NOTE]
+> **When to use this?**  
+> Hardware timers, rotary wheel encoders, and rolling timestamps tick continuously: `0, 1, 2 ... 255, 0, 1...`. You *want* them to roll over smoothly without triggering errors or panics.
+
+##### 4. Overflowing Math (`.overflowing_add`) — The Calculation + Red Flag
+This performs wrapping math, but also returns a boolean flag (`true`/`false`) reporting whether an overflow physically occurred:
+
+```rust
+let (result, did_overflow) = 250_u8.overflowing_add(20);
+// result is 14
+// did_overflow is true!
+```
+> [!NOTE]
+> This maps directly to how the microcontroller CPU's internal hardware ALU works (it calculates the sum and sets an internal **Overflow Flag** in silicon).
 
 ---
 
@@ -1247,6 +1303,31 @@ let unicode_char: char = 'A'; // 4 BYTES in RAM (0x00000041)
 let ascii_byte: u8 = b'A';    // 1 BYTE in RAM  (0x41)
 ```
 
+#### What is `0x41` and why is `'A'` equal to 65?
+
+1. **Yes, `'A'` IS exactly 65!** In the standard ASCII table, the capital letter `'A'` is assigned decimal value `65`.
+2. **What does `0x` mean?** `0x` is the standard programming prefix meaning: *"The following number is written in Hexadecimal (Base 16)"*. (Just as `0b` indicates binary).
+3. **Why is 65 written as `0x41` in Hex?**  
+   In hexadecimal, each column represents a power of 16:
+   $$\mathbf{0x41} = (4 \times 16^1) + (1 \times 16^0) = 64 + 1 = \mathbf{65}$$
+
+| Representation | Written As | Meaning |
+| :--- | :--- | :--- |
+| **Decimal** | `65` | Everyday human numbering |
+| **Hexadecimal** | `0x41` | Base-16 (compact representation for programmers) |
+| **Binary** | `0b0100_0001` | Raw electrical high/low switch states in silicon |
+
+#### Memory Representation Comparison
+
+* **`u8` (Byte literal `b'A'`):** Takes **1 byte (8 bits)**. Can store values from `0` to `255`. In RAM:
+  ```text
+  [ 0x41 ]  <-- Exactly 1 byte
+  ```
+* **`char` (Unicode Character `'A'`):** Takes **4 bytes (32 bits)**. Designed to hold any of the 140,000+ characters in Unicode. For `'A'`, the value is still 65 (`0x41`), but because 4 bytes are allocated, the upper 3 bytes are padded with zeros:
+  ```text
+  [ 0x00 ] [ 0x00 ] [ 0x00 ] [ 0x41 ]  <-- 4 full bytes (0x00000041)
+  ```
+
 ```text
 Memory Representation Comparison:
 Rust char 'A' (4 Bytes):
@@ -1281,7 +1362,7 @@ let small_val: u8 = adc_reading; // ❌ COMPILE ERROR! Mismatched types!
 ```
 
 #### The Danger of the `as` Keyword
-To force a conversion, Rust gives you the `as` operator. But in embedded systems, **`as` is a blunt chainsaw**:
+To force a conversion, Rust provides the `as` operator. But in embedded systems, **`as` is a blunt chainsaw**:
 
 ```rust
 let adc_reading: u16 = 1000;
@@ -1319,6 +1400,14 @@ match u8::try_from(adc_reading) {
 }
 ```
 
+##### What is `use core::convert::TryFrom;`?
+* **Is it like Python or Java imports?** **Yes! Exactly identical.**
+  * In Python: `from math import sqrt`
+  * In Java: `import java.util.Scanner;`
+  * In Rust: `use core::convert::TryFrom;`
+* **What is `core`?** On laptops, programs use `std` (the Standard Library), which requires an OS (Linux/Windows) for files and threads. On bare-metal microcontrollers, there is no OS! Rust provides **`core`**—a lightweight, zero-dependency library that runs directly on bare silicon.
+* **Why use `TryFrom` over `as`?** `TryFrom` does not chop bits blindly. It inspects the value first. If it fits, it returns `Ok(safe_val)`; if not, it returns `Err(_)`, preventing silent data corruption in flight or balancing loops.
+
 > [!CAUTION]
 > **NASA Rule of Thumb**: Use `as` only when **widening** a type (e.g., `my_u8 as u32` is always 100% safe because 8 bits easily fit in 32 bits). **Never** use `as` to narrow a type (`u32 as u8`) unless you have mathematically proven it cannot exceed 255. Otherwise, use `TryFrom`.
 
@@ -1355,6 +1444,26 @@ let octal_val: u16 = 0o777;        // Octal (511)
 let ascii_byte: u8 = b'R';         // Byte literal for ASCII character 'R' (82)
 ```
 
+##### Does Base Notation Affect Silicon Speed, Efficiency, or Cost?
+**ABSOLUTELY ZERO EFFECT.**
+
+Whether you write:
+```rust
+let a: u8 = 255;          // Decimal
+let b: u8 = 0xFF;         // Hexadecimal
+let c: u8 = 0b1111_1111;  // Pure Binary
+```
+* The compiler turns all three into the **exact same 8 bits of electrical charge in silicon**: `11111111`.
+* It does **not** cost more.
+* It does **not** run slower or faster (0.0% difference).
+* The microcontroller's CPU has no idea what format you typed in your code.
+
+> [!NOTE]
+> **Why use different bases? Purely for human engineering clarity!**
+> * **Decimal (`255`)**: Best for everyday human counts: speed, elapsed time, sensor distances.
+> * **Binary (`0b0000_1001`)**: Best for individual GPIO pin registers! You can visually see that Pin 0 and Pin 3 are HIGH (`1`), and the rest are LOW (`0`).
+> * **Hexadecimal (`0x4002_1000`)**: Best for memory addresses and 32-bit register bitmasks. It is far more readable than a massive 32-digit binary string!
+
 ---
 
 ### 9. Compound Primitives: Tuples and Fixed-Size Arrays
@@ -1366,7 +1475,7 @@ A tuple groups together multiple values of **different types** into a single com
 
 ```rust
 // GPS Coordinates: (Latitude f32, Longitude f32, Satellites Connected u8, Fix Valid bool)
-let gps_packet: (f32, f32, u8, bool) = (28.6139_f32, 77.2090_f32, 9_u8, true);
+let gps_packet: (f32, f32, u8, bool) = (28.6139, 77.2090, 9, true);
 
 // Accessing individual fields using dot notation:
 let lat = gps_packet.0;
@@ -1376,6 +1485,55 @@ let is_valid = gps_packet.3;
 let (latitude, longitude, sat_count, fix_ok) = gps_packet;
 ```
 
+##### Deep Dive: Type Annotations vs. Literal Suffixes (Edge Cases & Traps)
+
+When creating a tuple, beginners often ask: *"Do I write the types on the left, suffixes on the right, or both?"*
+
+Let's compare all four options:
+
+1. **Option A: Writing BOTH Type Annotation AND Suffixes**
+   ```rust
+   let gps_packet: (f32, f32, u8, bool) = (28.6139_f32, 77.2090_f32, 9_u8, true);
+   ```
+   * **Status**: 100% valid, but **redundant** (like writing `int x: int = 5;`).
+
+2. **Option B: Writing ONLY the Type Annotation (RECOMMENDED ⭐)**
+   ```rust
+   let gps_packet: (f32, f32, u8, bool) = (28.6139, 77.2090, 9, true);
+   ```
+   * **Status**: Clean, idiomatic Rust.
+   * **Why it's safe**: Because `(f32, f32, u8, bool)` is specified on the left, the compiler knows `28.6139` is `f32` and `9` is `u8`. It will **never** default to `f64` or `i32`!
+
+3. **Option C: Writing ONLY the Suffixes**
+   ```rust
+   let gps_packet = (28.6139_f32, 77.2090_f32, 9_u8, true);
+   ```
+   * **Status**: Clean and compact.
+   * **Warning**: If you accidentally forget even one suffix (e.g., `(28.6139, ...)`), Rust will silently default that single number to `f64`.
+
+4. **Option D: Writing NEITHER (THE EMBEDDED DISASTER TRAP 🛑)**
+   ```rust
+   let gps_packet = (28.6139, 77.2090, 9, true);
+   ```
+   * **The Danger**: Rust defaults unannotated floats to **`f64`** and integers to **`i32`**!
+   * The tuple becomes `(f64, f64, i32, bool)`.
+   * **Consequence**: Size balloons from 12 bytes to **24 bytes of RAM**, and math becomes $30\times$ slower due to 64-bit software float emulation on 32-bit MCUs!
+
+##### Destructuring a Tuple: Automatic Type Propagation
+When you unpack a tuple:
+```rust
+let (latitude, longitude, sat_count, fix_ok) = gps_packet;
+```
+Rust's type inference automatically attaches the exact types:
+* `latitude` $\rightarrow$ `f32`
+* `longitude` $\rightarrow$ `f32`
+* `sat_count` $\rightarrow$ `u8`
+* `fix_ok` $\rightarrow$ `bool`
+
+You do not need to write types here; the compiler propagates the types with complete safety.
+
+##### Physical RAM Memory Layout: Why "Zero Heap Usage" Matters
+
 ```text
 Physical RAM Memory Layout of gps_packet:
 ┌──────────────┬──────────────┬────────┬────────┬─────────────────────────┐
@@ -1384,6 +1542,12 @@ Physical RAM Memory Layout of gps_packet:
 └──────────────┴──────────────┴────────┴────────┴─────────────────────────┘
 Total: 12 bytes allocated directly on the Stack. Zero heap usage!
 ```
+
+> [!NOTE]
+> **Why is "Zero Heap Usage" a massive deal in Robotics?**
+> * **In Python**: `gps = (28.6139, 77.2090, 9, True)` allocates a `PyTupleObject` on the **Heap**. Each float is a separate `PyFloatObject` with reference counters and type pointers, taking **120+ bytes of RAM**!
+> * **In Java**: Creating a tuple or object allocates on the **Heap** using `new`, requiring Garbage Collector background scans that cause unpredictable millisecond pauses.
+> * **In Rust**: All 12 bytes sit directly on the **CPU Stack**. There is zero memory allocator overhead, zero fragmentation, and zero Garbage Collector. When the function returns, the Stack Pointer register is adjusted in **1 single clock cycle**!
 
 #### B. Fixed-Size Arrays `[T; N]`
 An array groups multiple values of the **exact same type** stored contiguously in memory:
@@ -1424,7 +1588,53 @@ fn toggle_buzzer() {
 }
 ```
 
+#### Why Rust Has `()` Instead of Just `void`
+In C and Java, `void` is a compiler keyword, **not a real data type**. You cannot create a variable of type `void`, nor can you pass it inside generics.
+
+In Rust, **`()` is a real, first-class type**. This allows powerful patterns like `Result`:
+
+```rust
+// "Try to start the motor. If successful, return nothing (()).
+//  If it fails, return a MotorError."
+fn start_motor() -> Result<(), MotorError> {
+    if is_battery_dead() {
+        return Err(MotorError::NoPower);
+    }
+    // Command motor driver...
+    Ok(()) // Returns success with zero memory overhead!
+}
+```
+
+#### Sneak Peek: The Typestate Pattern (Compile-Time Hardware Locks)
 In robotics, unit types and Zero-Sized Types (ZSTs) are used heavily in the **Typestate Pattern** (Chapter 8) to create compile-time hardware safety locks that compile down to absolute zero overhead in machine code.
+
+Imagine a microcontroller GPIO Pin. A pin can be in **Input mode** (reading a button) or **Output mode** (driving a motor).
+* What if you accidentally write code that drives voltage to an Input pin? **You could physically fry the microcontroller!**
+
+In Rust, we create **Zero-Sized Types**:
+```rust
+struct Input;  // 0 bytes in RAM
+struct Output; // 0 bytes in RAM
+
+struct Pin<Mode> {
+    pin_number: u8,
+    _mode: Mode, // Zero bytes in physical RAM!
+}
+
+impl Pin<Output> {
+    fn set_high(&mut self) {
+        // Only compiled when Mode == Output!
+    }
+}
+
+let button_pin: Pin<Input> = configure_button_pin(5);
+
+// ❌ COMPILE ERROR! The method `set_high` does NOT exist for Pin<Input>!
+// button_pin.set_high();
+```
+
+* **The Safety**: The Rust compiler physically **prevents you from frying your hardware** before your firmware ever touches the microcontroller!
+* **The Performance**: Because `Input` and `Output` are Zero-Sized Types, they are completely erased during compilation. The final robot binary runs with **zero RAM footprint and zero CPU cycles**!
 
 ---
 
@@ -1452,26 +1662,1730 @@ let min_duty = u8::MIN;  // 0
 
 ---
 
-### 12. Chapter Summary: Embedded Type Selection Guide
+## 1.5 Functions, Expressions vs. Statements, and Return Values
+
+In Java, every function must live inside a class as a method (`public int calculateSpeed() { ... }`). In Python, functions are dynamic runtime objects declared with `def`, where types are optional and verified only when that line of code actually runs.
+
+In **Bare-Metal Embedded Rust**, functions are standalone, first-class building blocks compiled directly into raw machine instructions Ahead-of-Time (AOT). But more importantly, Rust introduces a fundamental architectural shift: **Rust is an expression-oriented language**. 
+
+Almost every construct in Rust computes and produces a value. Understanding how expressions, statements, and return values interact is essential for writing clean, zero-overhead robotics firmware.
+
+---
+
+### 1. Function Declaration & Mandatory Type Signatures
+
+In Rust, a function is declared using the **`fn`** keyword, followed by its name in `snake_case`, its parameters, and an optional return type:
+
+```rust
+fn calculate_motor_thrust(voltage: f32, current: f32) -> f32 {
+    voltage * current * 0.85_f32
+}
+```
 
 ```text
-┌────────────────────┬──────────────┬──────────────────────────────────────────┐
-│ Scenario           │ Type         │ Reason                                   │
-├────────────────────┼──────────────┼──────────────────────────────────────────┤
-│ UART / SPI Data    │ u8 / [u8]    │ Raw byte-stream communication            │
-│ PWM Motor Speed    │ u8           │ Standard 0..255 (0%..100%) duty cycle    │
-│ ADC Sensor Reading │ u16          │ Native fit for 10-bit / 12-bit / 16-bit  │
-│ Hardware Registers │ u32          │ Standard ARM Cortex-M 32-bit MMIO        │
-│ IMU Accelerometer  │ i16          │ Signed directional G-force values        │
-│ Array Indexing     │ usize        │ Matches memory address width             │
-│ Math Calculations  │ f32          │ Single-precision hardware FPU supported  │
-│ Digital Logic Pin  │ bool         │ Clean true (HIGH) / false (LOW) logic    │
-│ No Return Value    │ ()           │ Zero-Sized Type (0 bytes memory)         │
-└────────────────────┴──────────────┴──────────────────────────────────────────┘
+Anatomy of a Rust Function:
+ fn  calculate_motor_thrust ( voltage: f32 , current: f32 ) ->  f32  { ... }
+ │   └──────────┬─────────┘   └────────┬─────┘ └────────┬────┘  └───┬──┘
+ │              │                      │                │           │
+Keyword     Function Name          Parameter 1      Parameter 2  Return Type
+```
+
+#### Why are Type Annotations Mandatory on Functions?
+Earlier in Section 1.3, we learned that Rust has powerful **type inference**: inside a function, you can simply write `let x = 5;` and the compiler figures out the type on its own.
+
+However, on function signatures:
+* **All parameter types are 100% MANDATORY.**
+* **The return type is MANDATORY** (unless returning the unit type `()`).
+
+Why did Rust's designers forbid type inference across function boundaries?
+
+1. **Explicit Hardware Contract:** When writing firmware for a drone or robot, a function signature is an unbreakable contract. If a motor function expects `u8` (a PWM duty cycle from `0` to `255`), writing `fn set_pwm(duty: u8)` guarantees at compile time that no caller can accidentally pass a 32-bit integer or a float.
+2. **Blazing Fast Compilation Speed:** The compiler can analyze and verify each function completely independently. It does not need to analyze your entire codebase or trace every caller just to deduce what a function expects.
+3. **Living Documentation:** You can read the function signature alone and instantly know what physical data enters and exits the routine without reading 50 lines of internal logic.
+
+---
+
+### 2. Expressions vs. Statements (The Core Mental Shift)
+
+To master Rust, you must understand the difference between **Statements** and **Expressions**. This is the single biggest difference between Rust and statement-heavy languages like C, Java, or Python.
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ STATEMENTS VS. EXPRESSIONS: THE CORE MENTAL MODEL                           │
+│                                                                             │
+│ 1. STATEMENT (`stmt`):                                                      │
+│    • An instruction that DOES SOMETHING, but RETURNS NOTHING.               │
+│    • Always ends with a semicolon `;`.                                      │
+│    • Its evaluation result is always the empty Unit Type `()`.              │
+│    • Example: `let sensor_pin: u8 = 4;`                                     │
+│                                                                             │
+│ 2. EXPRESSION (`expr`):                                                     │
+│    • A calculation or block that EVALUATES TO A VALUE.                      │
+│    • Does NOT end with a semicolon `;`.                                     │
+│    • Hands its value directly to whatever is waiting for it.                │
+│    • Example: `voltage * 10.0_f32`                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Detailed Comparison Table
+
+| Dimension | Statement (`stmt`) | Expression (`expr`) |
+| :--- | :--- | :--- |
+| **Purpose** | Performs an action or declares an item | Computes and produces a value |
+| **Ending Semicolon?** | **Yes** (Ends with `;`) | **No** (No semicolon at the end) |
+| **Value Produced** | Nothing (evaluates to Unit `()`) | The computed result (e.g., `42`, `3.3_f32`) |
+| **Can bind to `let`?** | No (`let x = (let y = 5);` is illegal) | Yes (`let x = 5 + 3;` binds `8`) |
+| **Common Examples** | Variable declarations (`let`), item definitions | Math operations, function calls, blocks `{ }`, `if/else` |
+
+---
+
+### 3. The Semicolon Trap: Discarding Values into `()`
+
+What does a semicolon `;` physically do in Rust?
+
+> [!CAUTION] The Semicolon Turns Values into Nothing!
+> In Rust, a semicolon is not just visual punctuation. 
+> 
+> A semicolon is an operator that tells the compiler:
+> *"Take the value of the expression on the left, **throw it in the trash**, and replace it with `()` (the empty Unit Type)!"*
+
+#### The Classic Beginner Mistake:
+Look closely at this motor calculation function:
+
+```rust
+// ❌ COMPILE ERROR!
+fn calculate_rpm(gear_ratio: u16, motor_speed: u16) -> u16 {
+    gear_ratio * motor_speed; // <-- Notice the semicolon!
+}
+```
+
+If you try to compile this, `rustc` stops with a clear error:
+
+```text
+error[E0308]: mismatched types
+ --> src/main.rs:1:56
+  |
+1 | fn calculate_rpm(gear_ratio: u16, motor_speed: u16) -> u16 {
+  |    -------------                                       ^^^ expected `u16`, found `()`
+  |    |
+  |    implicitly returns `()` as its body has no tail or `return` expression
+2 |     gear_ratio * motor_speed;
+  |                             - help: remove this semicolon to return this value
+```
+
+#### What happened here in plain English?
+1. The function signature promised the caller: *"I will return a 16-bit integer (`-> u16`)."*
+2. On line 2, `gear_ratio * motor_speed` calculated the number `1200`.
+3. But because you added a semicolon `;` at the end, Rust obediently threw `1200` away and evaluated the line to `()`.
+4. The function ended with `()`, breaking its promise to return a `u16`!
+
+#### The Fix: Simply Drop the Semicolon
+```rust
+// ✅ CORRECT & IDIOMATIC RUST:
+fn calculate_rpm(gear_ratio: u16, motor_speed: u16) -> u16 {
+    gear_ratio * motor_speed // No semicolon! The computed value is returned!
+}
 ```
 
 ---
 
+### 4. Return Values: Implicit Tail Returns vs. Explicit Early Returns
+
+In Rust, there are two distinct ways to return a value from a function:
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 1. IMPLICIT TAIL RETURN (Idiomatic & Clean)                                 │
+│    • The last expression in the function body without a semicolon.          │
+│    • Used for the standard, final calculation result.                       │
+│    • No `return` keyword needed.                                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 2. EXPLICIT EARLY RETURN (`return val;`)                                    │
+│    • Uses the explicit `return` keyword and ends with a semicolon.          │
+│    • Used for Guard Clauses, Safety Checks, and Emergency Bails.             │
+│    • Instantly exits the function at that exact line.                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 1. Implicit Tail Return (The Idiomatic Way)
+Rust developers do not write `return` at the end of a function. Writing `return x;` on the final line is considered unidiomatic and redundant (the compiler linter `clippy` will even warn you to remove it):
+
+```rust
+// Idiomatic Rust:
+fn battery_percentage(voltage: f32) -> f32 {
+    let normalized = (voltage - 3.0_f32) / (4.2_f32 - 3.0_f32);
+    normalized * 100.0_f32 // Tail expression: directly returned
+}
+```
+
+#### What Happens if You Write `return` on the Last Line Anyway?
+
+A common question from engineers coming from C, Java, or Python:
+> *"What happens if I write `return` on the last line anyway? Does the compiler reject it?"*
+
+* **It compiles and runs 100% fine!** The machine code produced by `rustc` and LLVM is identical down to the exact same CPU instructions.
+* **However, the compiler linter (`cargo clippy`) flags it as a warning:**
+  ```text
+  warning: unneeded `return` statement
+   --> src/main.rs:3:5
+    |
+  3 |     return normalized * 100.0_f32;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove `return`
+  ```
+
+##### Summary of the Three Return Styles:
+```rust
+// 1. ✅ Clean, Idiomatic Rust (Expression):
+fn add(a: i32, b: i32) -> i32 {
+    a + b // No return, NO semicolon. Value flows out!
+}
+
+// 2. ⚠️ Valid, but Redundant (C/Java style):
+fn add(a: i32, b: i32) -> i32 {
+    return a + b; // Compiles identically, but clippy warns to remove `return`
+}
+
+// 3. ❌ The Semicolon Trap (Broken statement):
+fn add(a: i32, b: i32) -> i32 {
+    a + b; // COMPILE ERROR! Semicolon throws value away and returns `()`!
+}
+```
+
+#### 2. Explicit Early Return (The Safety Guard Clause)
+When should you use the `return` keyword? **For early exits and safety guard clauses.**
+
+In robotics and drones, safety checks must evaluate *before* dangerous motor commands run:
+
+```rust
+fn compute_steering_angle(obstacle_distance_cm: u16, raw_angle: f32) -> f32 {
+    // Safety Guard 1: Emergency obstacle bailout!
+    if obstacle_distance_cm < 20 {
+        // Stop steering forward immediately, turn hard right!
+        return 90.0_f32; 
+    }
+
+    // Safety Guard 2: Sensor malfunction check!
+    if obstacle_distance_cm > 4000 {
+        return 0.0_f32; // Sensor disconnected or out of range: hold straight
+    }
+
+    // Normal flight control math (Tail Return):
+    raw_angle * 0.8_f32
+}
+```
+
+> [!TIP] Guard Clauses Prevent "Pyramid of Doom" Nesting
+> In Java and C, developers often nest five levels of `if (sensor_ok) { if (battery_ok) { if (arm_switch) { ... } } }`.
+> 
+> In Embedded Rust, use **Guard Clauses with early `return`** at the top of your function. Check for error conditions and bail out early. This keeps the primary control algorithm flat, clean, and easy to inspect.
+
+---
+
+### 5. Returning Multiple Values & Compound Data (Tuples, Arrays, Structs & Result)
+
+Can a Rust function only return a single scalar value like a single `u8` or `f32`?
+
+**NO! A function can return multiple values, compound data structures, or hardware error results.**
+
+In bare-metal embedded programming, functions frequently need to return multiple sensor readings, status bundles, or packet payloads. Here are the 4 primary patterns:
+
+#### 1. Returning Multiple Values via Tuples (Python-Style Destructuring)
+When a function computes two or three related values (such as GPS coordinates or motor status flags), return a **Tuple**:
+
+```rust
+// Returns TWO coordinates together:
+fn get_gps_coordinates() -> (f32, f32) {
+    let latitude = 28.6139_f32;
+    let longitude = 77.2090_f32;
+
+    (latitude, longitude) // Returned as a tuple!
+}
+
+pub fn log_telemetry() {
+    // Unpack (destructure) both values in 1 line:
+    let (lat, lon) = get_gps_coordinates();
+}
+```
+
+You can even return mixed types in a single tuple:
+```rust
+// Returns: (Current Speed u8, Battery Percentage u8, Motor Alert bool)
+fn get_robot_status() -> (u8, u8, bool) {
+    (150, 85, false)
+}
+```
+
+> [!NOTE] Zero Heap Allocation in Silicon!
+> In Python, returning `(28.6139, 77.2090)` allocates a dynamic `PyTupleObject` on the **Heap** with Garbage Collection overhead.
+> In Rust, returning a small tuple requires **zero heap memory**! Under the ARM Cortex-M AAPCS calling convention, the two 32-bit float values are placed directly into physical CPU registers (`R0` and `R1`, or FPU registers `s0` and `s1`), executing at maximum silicon speed.
+
+#### 2. Returning Fixed-Size Arrays (Multiple Values of the Same Type)
+When returning a fixed set of identical hardware readings (such as 4 analog distance sensors on a mini-robot):
+
+```rust
+// Returns an array of 4 raw 12-bit ADC readings:
+fn read_all_sonar_sensors() -> [u16; 4] {
+    [1020, 2045, 1890, 4010]
+}
+```
+
+#### 3. Returning Named Structs (Complex Telemetry Bundles)
+When returning 5 or more fields, a tuple like `(i16, i16, i16, i16, i16, i16)` becomes confusing and prone to accidental field swapping. Instead, return a named **Struct**:
+
+```rust
+struct ImuTelemetry {
+    accel_x: i16,
+    accel_y: i16,
+    accel_z: i16,
+    gyro_z: i16,
+}
+
+fn read_imu() -> ImuTelemetry {
+    ImuTelemetry {
+        accel_x: 12,
+        accel_y: -4,
+        accel_z: 980, // ~1G Earth gravity
+        gyro_z: 0,
+    }
+}
+```
+
+#### 4. Returning Success Data OR Hardware Errors (`Result<T, E>`)
+In embedded robotics, hardware operations can fail (e.g., I2C bus lockup, sensor timeout, wire disconnection). Rust functions return a **`Result`** to explicitly separate valid data from hardware faults:
+
+```rust
+enum SensorError {
+    Timeout,
+    BusCollision,
+}
+
+// Returns a distance (u16 in cm) IF successful, or a SensorError IF it fails:
+fn read_distance_sensor() -> Result<u16, SensorError> {
+    if is_sensor_timed_out() {
+        Err(SensorError::Timeout)
+    } else {
+        Ok(154) // Returns 154 cm safely!
+    }
+}
+```
+
+---
+
+### 6. What Physically Happens in Silicon? (The CPU Calling Convention & ARM ABI)
+
+When our laptop compiles Rust code for an ARM Cortex-M or RISC-V microcontroller, how does the physical CPU actually execute a function call?
+
+At the silicon level, the CPU does not have variables or high-level function concepts. It only has physical transistor circuits called **Registers** and a region of RAM called the **Stack**.
+
+```text
+ARM Cortex-M Hardware Register Allocation during Function Calls (AAPCS ABI):
+┌───────────┬─────────────────────────────────────────────────────────────────┐
+│ Register  │ Hardware Role in Function Calls                                 │
+├───────────┼─────────────────────────────────────────────────────────────────┤
+│ R0        │ Argument 1 (Input)  ─── AND ─── Return Value (Output)           │
+│ R1        │ Argument 2 (Input)                                              │
+│ R2        │ Argument 3 (Input)                                              │
+│ R3        │ Argument 4 (Input)                                              │
+│ R4 – R11  │ Callee-saved general registers (preserved across calls)         │
+│ R13 (SP)  │ Stack Pointer (points to current top of RAM Stack)              │
+│ R14 (LR)  │ Link Register (holds the return memory address to jump back)    │
+│ R15 (PC)  │ Program Counter (holds address of instruction currently executing)│
+└───────────┴─────────────────────────────────────────────────────────────────┘
+```
+
+#### Tracing a Function Call in Physical Hardware
+
+Suppose our code calls a simple sensor conversion function:
+
+```rust
+fn to_millivolts(raw_adc: u16, vref: u16) -> u32 {
+    (raw_adc as u32 * vref as u32) / 4095
+}
+```
+
+Here is the exact cycle-by-cycle electrical choreography inside the ARM Cortex-M CPU:
+
+```text
+CALLER FUNCTION                                 CALLEE FUNCTION (`to_millivolts`)
+┌─────────────────────────────────────┐         ┌─────────────────────────────────────┐
+│ 1. Load `raw_adc` into Register R0  │         │ 4. Read inputs from R0 and R1       │
+│ 2. Load `vref` into Register R1     │         │ 5. Math unit computes result        │
+│ 3. Execute `BL to_millivolts`       │───────> │ 6. Write final result into R0       │
+│    (Saves next PC address into LR   │         │ 7. Execute `BX LR`                  │
+│     and jumps to function code)     │ <───────│    (Jumps back to address in LR)    │
+│ 8. Caller reads answer from R0!     │         └─────────────────────────────────────┘
+└─────────────────────────────────────┘
+```
+
+1. **Zero RAM Allocated:** Because `to_millivolts` takes only 2 arguments and returns 1 value, **it uses 0 bytes of RAM!** The entire exchange happens inside ultra-fast CPU registers `R0` and `R1`.
+2. **Registers R0–R3 (The "Fast Lane"):** The ARM ABI specifies that the first 4 function arguments travel inside registers `R0`, `R1`, `R2`, and `R3`.
+3. **What if a function has 6 arguments?** The first 4 go into `R0`–`R3`. Arguments 5 and 6 are pushed onto the physical RAM Stack. Pushing to RAM takes extra clock cycles and eats up stack memory.
+
+> [!TIP] The Embedded 4-Argument Rule of Thumb
+> Keep functions to **4 parameters or fewer** whenever possible!
+> 
+> When a function takes $\le 4$ machine-word arguments, the CPU passes every single parameter directly inside registers (`R0`–`R3`), requiring **zero RAM memory operations** and executing at maximum silicon speed.
+
+---
+
+### 7. Zero-Cost Abstractions: Function Inlining (`#[inline]`)
+
+Beginners transitioning from C to Rust often ask:
+> *"If I break my code into dozens of tiny 3-line helper functions, won't all those function calls slow down my robot's balance loop and waste stack memory?"*
+
+The answer is **NO**. Rust eliminates this cost through **Function Inlining**.
+
+#### What is Inlining?
+During compilation with optimizations enabled (`cargo build --release`), the LLVM compiler performs an optimization called **Inlining**:
+* Instead of generating a `BL` (Branch with Link) jump instruction and setting up a stack frame, the compiler **pastes the function's internal machine instructions directly into the caller's code**.
+* The function call vanishes completely in the final `.bin` firmware!
+
+```rust
+// A tiny 1-line helper function:
+#[inline(always)]
+fn adc_to_voltage(raw: u16) -> f32 {
+    (raw as f32 / 4095.0_f32) * 3.3_f32
+}
+
+pub fn control_loop() {
+    let reading = read_raw_adc();
+    let volts = adc_to_voltage(reading);
+    apply_motor_trim(volts);
+}
+```
+
+#### What the CPU Actually Executes:
+In the compiled firmware, there is **no jump** to `adc_to_voltage`. The math is merged directly into `control_loop`:
+
+```text
+Compiled Machine Code in Flash:
+┌─────────────────────────────────────────────────────────────┐
+│ 1. Read ADC hardware register                               │
+│ 2. Compute: (ADC / 4095.0) * 3.3  <-- Pasted inline!        │
+│ 3. Apply motor trim               <-- Zero call overhead!   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Inlining Control Attributes
+
+Rust gives you explicit compiler attributes to control inlining:
+
+| Attribute | What it tells the Compiler | When to use in Embedded / Robotics |
+| :--- | :--- | :--- |
+| *(None / Default)* | The compiler uses cost heuristics to automatically inline small functions. | Standard application logic, helper calculations. |
+| **`#[inline]`** | Suggests cross-crate inlining to LLVM. | Methods in reusable device driver libraries and HAL crates. |
+| **`#[inline(always)]`** | **Forces** the compiler to inline the function 100% of the time. | Critical 1-clock-cycle microsecond loops (e.g., bit-banging a GPIO pin or SPI clock tick). |
+| **`#[inline(never)]`** | **Forbids** inlining; forces a real jump instruction. | Large initialization routines run only once at boot, or error/panic handlers to **save Flash storage space**. |
+
+---
+
+### 8. NASA Power of 10 Rules: Rules #4 and #1 for Functions
+
+Functions are central to two of NASA's most critical rules for safety-critical systems:
+
+#### NASA Rule #4: Keep Functions Modular and Under 60 Lines
+* **The Rule:** Every function should fit within approximately 60 lines of code.
+* **Why this matters:** When a function is under 60 lines, an engineer can see the entire function on a single screen without scrolling. Its inputs, internal logic, safety checks, and return values can be verified at a single glance.
+* **The Embedded Rust Advantage:** In other languages, developers resist breaking code into small functions because they worry about function call latency. In Rust, because small functions are **inlined with zero overhead**, you get both: **perfect human readability AND maximum silicon execution speed!**
+
+#### NASA Rule #1: Eliminate All Recursion
+* **The Rule:** Never write a function that calls itself, directly or indirectly.
+* **Why Recursion is Fatal on Microcontrollers:**
+  * Microcontrollers do not have virtual memory or infinite stack space. A typical STM32 or RP2040 chip may only have **32 KB to 256 KB of total RAM**.
+  * Every recursive call allocates a new stack frame (saving registers and local variables).
+  * If a recursive tree traversal or search encounters unexpected sensor data, the stack rapidly grows downward until it smashes into program variables in RAM (**Stack Overflow**). The microcontroller freezes, reboots, or drives motors out of control.
+
+```rust
+// ❌ BANNED UNDER NASA RULE #1: Recursive Factorial / Fibonacci
+fn fibonacci_bad(n: u32) -> u32 {
+    if n <= 1 {
+        return n;
+    }
+    fibonacci_bad(n - 1) + fibonacci_bad(n - 2) // Stack can blow up in flight!
+}
+
+// ✅ NASA-COMPLIANT: Bounded Iterative Loop
+fn fibonacci_safe(n: u32) -> u32 {
+    if n <= 1 {
+        return n;
+    }
+    let mut prev = 0;
+    let mut curr = 1;
+    for _ in 2..=n {
+        let next = prev.saturating_add(curr);
+        prev = curr;
+        curr = next;
+    }
+    curr
+}
+```
+
+---
+
+### 9. Compile-Time Functions (`const fn`)
+
+One of Rust's most powerful capabilities for robotics is **`const fn`** (Constant Functions).
+
+A `const fn` is a function that the Rust compiler can execute **at compile time on your laptop** while generating your firmware binary:
+
+```rust
+// This function can run at compile time!
+const fn calculate_timer_reload(cpu_freq_hz: u32, target_freq_hz: u32) -> u32 {
+    (cpu_freq_hz / target_freq_hz) - 1
+}
+
+// Evaluated on your laptop during compilation:
+const TIMER_RELOAD_1KHZ: u32 = calculate_timer_reload(168_000_000, 1_000);
+```
+
+#### Why is `const fn` Revolutionary for Embedded Robotics?
+
+1. **Zero Runtime CPU Overhead:** The microcontroller never executes the division. The math was solved on your laptop weeks before the drone was turned on. The final machine code contains just a single hardcoded literal number:
+   ```text
+   Assembly generated in Flash:
+   MOV R0, #167999   ; Calculated at compile-time! Zero CPU cycles! Zero RAM!
+   ```
+2. **Eliminates Magic Numbers:** Instead of writing unexplained numbers like `167999` in your firmware, you write the clear mathematical formula inside a `const fn`.
+3. **Compile-Time Safety Verification:** If the formula attempts to divide by zero or produces an illegal value, **compilation fails on your laptop with an error**. An invalid hardware configuration can never reach the physical robot!
+
+> [!NOTE] Dual-Nature of `const fn`
+> A `const fn` can be called in two different ways:
+> 1. At **compile-time**: when used to initialize a `const` or `static` value.
+> 2. At **runtime**: if called inside regular code with dynamic variables (e.g., `let val = calculate_timer_reload(clock, freq);`). In that case, it executes as a standard, regular function!
+
+---
+
+### 10. Diverging Functions: Functions That Never Return (`-> !`)
+
+In standard desktop software, every function eventually returns control to its caller, and `main()` returns when the program terminates.
+
+In **Bare-Metal Microcontrollers**, this assumption is false:
+* When a microcontroller boots, its firmware **never ends**. There is no operating system to return to! If `main()` exited, what would the CPU execute next? It would execute random unprogrammed Flash memory and crash.
+* When a safety-critical fault happens, the CPU enters an emergency halt loop or initiates a hardware reboot.
+
+Rust models this physical hardware reality using the **Never Type**, written as an exclamation mark **`!`** (also called a **Diverging Function**):
+
+```rust
+// A function that physically NEVER returns:
+fn emergency_halt() -> ! {
+    // 1. Cut power to all motor outputs
+    // 2. Set alert LED to solid RED
+    loop {
+        // Halt CPU here forever until manual reset or watchdog trigger
+    }
+}
+```
+
+#### The Three Core Embedded Use Cases for `-> !`:
+
+##### 1. The Main Embedded Entry Point (`#[entry]`)
+Bare-metal Rust applications running without an OS use an infinite loop at the bottom of `main`:
+```rust
+#[no_main]
+fn main() -> ! {
+    let peripherals = init_hardware();
+
+    loop {
+        // The robot's continuous 1 kHz sensor and motor loop:
+        read_sensors();
+        update_pid();
+        drive_motors();
+    } // Never exits!
+}
+```
+
+##### 2. The Microcontroller Panic Handler
+When a critical bug or assertion triggers in bare-metal Rust, control jumps to the `#[panic_handler]`. The panic handler must never return:
+```rust
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    // Disable all PWM outputs to stop spinning propellers immediately:
+    disable_motors();
+
+    // Freeze CPU in place:
+    loop {}
+}
+```
+
+##### 3. Hardware System Reset
+A function that triggers a physical silicon microcontroller reset via the ARM Cortex-M Application Interrupt and Reset Control Register (AIRCR):
+```rust
+fn system_reset() -> ! {
+    // Write reset request bitmask into hardware register SCB->AIRCR:
+    trigger_silicon_reset();
+
+    // Wait for the electrical reset pulse to cycle power:
+    loop {}
+}
+```
+
+#### Silicon Optimization with `-> !`
+When a function is marked `-> !`, the compiler knows that instructions after the call are unreachable:
+* The CPU **does not emit any stack restoration instructions** or `BX LR` jump instructions.
+* The compiler can safely discard dead code and optimize CPU register allocation.
+
+---
+
+### 11. Language Paradigm Comparison: Python vs. Java vs. Rust
+
+| Feature | Python | Java | Rust |
+| :--- | :--- | :--- | :--- |
+| **Declaration Keyword** | `def name(args):` | `public ReturnType name(args)` | **`fn name(args) -> ReturnType`** |
+| **Parameter Types** | Optional (Type hints ignored at runtime) | **Mandatory** | **Mandatory** (Enforces strict silicon contracts) |
+| **Return Type Declaration** | Optional (`-> int:`) | **Mandatory** | **Mandatory** (defaults to `()` if omitted) |
+| **Code Style Paradigm** | Statement-based | Statement-based | **Expression-oriented** |
+| **Tail Return Syntax** | Explicit `return` required | Explicit `return` required | **Implicit** (last expression without `;`) |
+| **Early Returns** | `return value` | `return value;` | **`return value;`** (used for Guard Clauses) |
+| **Empty Return Value** | `None` (dynamic object) | `void` (keyword only, not a real type) | **`()`** (Zero-Sized Type, 0 bytes in RAM) |
+| **Function Inlining** | No compiler inlining | JIT compiler runtime inlining | **Compile-time AOT inlining** (`#[inline]`) |
+| **Compile-Time Evaluation** | No | Limited (`static final` expressions) | **`const fn`** (Arbitrary compile-time logic) |
+| **Never-Returning Functions** | `NoReturn` hint only | Throws exception or infinite loop | **First-class `-> !` (Diverging Type)** |
+
+---
+
+### 12. Real-World Case Study: Safety-Critical Robot Motor Controller Module
+
+Let's combine everything we learned in Section 1.5—`const fn`, NASA Rule #4 modularity, guard clauses, tail expressions, and safe register-width types—into a complete, practical motor control module for a mobile robot:
+
+```rust
+// ============================================================================
+// 1. Compile-Time Calculation (Zero Runtime Cost)
+// ============================================================================
+
+/// Calculates the hardware timer reload count for a desired PWM frequency.
+/// Computed on your laptop at compile time! Zero CPU cycles on the robot!
+const fn calculate_timer_period(clock_hz: u32, pwm_freq_hz: u32) -> u32 {
+    (clock_hz / pwm_freq_hz) - 1
+}
+
+// 84 MHz timer clock, 20 kHz PWM for silent motor operation:
+const PWM_PERIOD: u32 = calculate_timer_period(84_000_000, 20_000); // 4199
+
+// ============================================================================
+// 2. NASA Rule #4: Small, Modular, Single-Responsibility Helper Functions
+// ============================================================================
+
+/// Converts an analog voltage (0.0 V - 3.3 V) into a percentage (0.0% - 100.0%).
+/// Uses an implicit tail expression return.
+#[inline]
+fn voltage_to_percentage(battery_volts: f32) -> f32 {
+    let min_volts = 3.0_f32; // Fully discharged LiPo cell
+    let max_volts = 4.2_f32; // Fully charged LiPo cell
+
+    // Expression block with tail return:
+    let clamped_volts = if battery_volts < min_volts {
+        min_volts
+    } else if battery_volts > max_volts {
+        max_volts
+    } else {
+        battery_volts
+    };
+
+    ((clamped_volts - min_volts) / (max_volts - min_volts)) * 100.0_f32
+}
+
+/// Computes the final motor PWM duty cycle (0..255) with safety guard clauses.
+/// Adheres strictly to NASA Rule #4 (under 30 lines).
+pub fn compute_motor_pwm(
+    commanded_speed: u8,
+    obstacle_distance_cm: u16,
+    battery_volts: f32,
+    emergency_switch_pressed: bool,
+) -> u8 {
+    // ------------------------------------------------------------------------
+    // Guard Clause 1: Emergency Stop Switch (Immediate Cutoff!)
+    // ------------------------------------------------------------------------
+    if emergency_switch_pressed {
+        return 0; // Cut power instantly!
+    }
+
+    // ------------------------------------------------------------------------
+    // Guard Clause 2: Proximity Alert (Obstacle detected within 15 cm)
+    // ------------------------------------------------------------------------
+    if obstacle_distance_cm < 15 {
+        return 0; // Prevent collision
+    }
+
+    // ------------------------------------------------------------------------
+    // Guard Clause 3: Critical Low Battery Failsafe (< 3.1 V per cell)
+    // ------------------------------------------------------------------------
+    if battery_volts < 3.1_f32 {
+        return 0; // Protect LiPo battery from permanent undervoltage damage
+    }
+
+    // ------------------------------------------------------------------------
+    // Normal Motor Power Path (Tail Expression Return)
+    // ------------------------------------------------------------------------
+    // Scale motor power slightly down if battery is discharging:
+    let battery_pct = voltage_to_percentage(battery_volts);
+    let scale_factor = battery_pct / 100.0_f32;
+
+    // Return the scaled PWM value without a semicolon:
+    ((commanded_speed as f32) * scale_factor) as u8
+}
+```
+
+```text
+Firmware Execution Architecture of `compute_motor_pwm`:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ INPUTS: (commanded_speed, obstacle_cm, battery_volts, emergency_switch)     │
+│ Passed via ARM registers R0, R1, (FPU s0), and R2 with zero RAM allocation  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 1. Emergency Switch Pressed? ──────[ YES ]────► RETURN 0 (Emergency Exit)   │
+│              │ [ NO ]                                                       │
+│              ▼                                                              │
+│ 2. Obstacle < 15 cm? ──────────────[ YES ]────► RETURN 0 (Collision Guard)  │
+│              │ [ NO ]                                                       │
+│              ▼                                                              │
+│ 3. Battery < 3.1 V?  ──────────────[ YES ]────► RETURN 0 (Battery Guard)    │
+│              │ [ NO ]                                                       │
+│              ▼                                                              │
+│ 4. Compute Tail Expression:                                                 │
+│    (commanded_speed * scale_factor) ──────────► RETURN Scaled PWM in R0     │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 1.6 Control Flow: `if/else` as Expressions, `loop`, `while`, and `for` Iterators
+
+In traditional languages like C, Java, and Python, control flow structures (`if`, `switch`, `while`, `for`) are **statements**: they steer the direction of CPU execution, but they do not produce values on their own. If you want to assign a value based on a condition, you are forced to declare a mutable variable beforehand or reach for special syntax like the ternary operator (`? :`).
+
+In **Bare-Metal Embedded Rust**, control flow structures are **first-class expressions**. They not only direct execution, but they also calculate and yield values directly into variables and CPU registers. 
+
+Understanding how Rust handles branching, infinite super-loops, timeouts, and iterators allows us to write firmware that is mathematically safe, free of undefined behavior, and tightly aligned with aerospace safety standards like the **NASA Power of 10**.
+
+---
+
+### 1. `if/else` as an Expression (Why Rust Has No Ternary Operator)
+
+In C and Java, if you need to choose a value based on a condition, you typically write:
+
+```c
+// In C / Java: Mutable variable declared first
+int motor_pwm;
+if (turbo_mode) {
+    motor_pwm = 255;
+} else {
+    motor_pwm = 120;
+}
+```
+
+Or you use the ternary operator:
+
+```c
+// In C / Java: Ternary operator
+int motor_pwm = turbo_mode ? 255 : 120;
+```
+
+In Rust, **`if/else` is already an expression**. You can bind its evaluated result directly to an immutable variable with `let`:
+
+```rust
+// In Rust: `if/else` evaluates directly into an immutable variable!
+let motor_pwm: u8 = if turbo_mode {
+    255
+} else {
+    120
+};
+```
+
+> [!NOTE] Why Rust Doesn't Have the Ternary Operator (`? :`)
+> Rust deliberately omits the ternary operator (`condition ? a : b`) because `if/else` accomplishes the exact same task with zero ambiguity, cleaner syntax, and full support for multi-line expression blocks.
+
+#### NASA Rule #6 Connection: Enforcing Immutability
+Remember **NASA Rule #6**: *"Minimize Variable Scopes and Enforce Immutability."*
+
+* In C or Java, developers often declare `int motor_pwm;` as mutable, assign it inside an `if`, and leave it mutable for the remaining 80 lines of the function. Any subsequent line of code can accidentally overwrite that motor value!
+* In Rust, using `let motor_pwm = if ... else ...;` guarantees the variable is **100% frozen and immutable** the microsecond it is created. No future line can corrupt it.
+
+---
+
+### 2. The Type Consistency Rule & The Semicolon Trap in `if/else`
+
+Because `if/else` is an expression that yields a value, the compiler enforces a strict silicon rule:
+
+> [!IMPORTANT] Both Branches Must Return the Exact Same Type!
+> The compiler must determine the exact size and memory layout of the variable at compile time on your laptop. Every branch (`if`, `else if`, `else`) must evaluate to the **exact same data type**.
+
+```rust
+// ❌ COMPILE ERROR! Mismatched types:
+let target_speed = if high_gear {
+    100_u8  // Branch 1 returns an 8-bit unsigned integer (u8)
+} else {
+    500_u16 // Branch 2 returns a 16-bit unsigned integer (u16)
+};
+```
+
+`rustc` stops compilation immediately:
+```text
+error[E0308]: `if` and `else` have incompatible types
+  |
+2 |       let target_speed = if high_gear {
+  |  ________________________-
+3 | |         100_u8
+  | |         ------ expected `u8`, found `u16`
+4 | |     } else {
+5 | |         500_u16
+  | |         ------- `else` clause returned `u16`
+6 | |     };
+```
+
+#### The Semicolon Trap in Branches
+A very common beginner trap is accidentally adding a semicolon to one of the branches:
+
+```rust
+// ❌ COMPILE ERROR!
+let motor_pwm: u8 = if battery_ok {
+    200 // Evaluates to u8
+} else {
+    0;  // <-- Trailing semicolon turns this branch into ()!
+};
+```
+
+* The `if` branch evaluates to `200` (`u8`).
+* The `else` branch ends with a semicolon `;`, which discards `0` and evaluates to `()` (Unit).
+* The compiler cannot bind a variable that might be a `u8` or might be `()`, so compilation fails.
+
+#### What if there is no `else`?
+If an `if` expression has no `else` branch, it **must evaluate to `()`**:
+
+```rust
+// Valid: The block does an action and returns nothing (())
+if emergency_stop_pressed {
+    cut_motor_power();
+}
+
+// ❌ COMPILE ERROR: Cannot bind a value without an `else` branch!
+let speed = if turbo { 255 }; 
+// What would `speed` be if turbo is false? Rust refuses to leave it undefined!
+```
+
+---
+
+### 3. What Physically Happens in Silicon? (Conditional Branching on ARM Cortex-M)
+
+How does a microcontroller physically execute an `if/else` expression?
+
+On modern 32-bit processors (like the ARM Cortex-M4 on an STM32), the CPU uses an **instruction pipeline** to fetch, decode, and execute instructions in parallel. 
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ HOW HARDWARE EXECUTES IF / ELSE: CONDITIONAL BRANCH VS. IT BLOCK            │
+│                                                                             │
+│ Method A: Standard Branching (Jumps)                                        │
+│   CMP R0, #0              ; Compare `turbo_mode` with 0                     │
+│   BEQ .L_else             ; If equal to 0, JUMP to else branch              │
+│   MOV R1, #255            ; If not equal: motor_pwm = 255                   │
+│   B   .L_continue         ; JUMP over the else branch                       │
+│ .L_else:                                                                    │
+│   MOV R1, #120            ; motor_pwm = 120                                 │
+│ .L_continue:                                                                │
+│                                                                             │
+│ Method B: ARM Thumb-2 "IT" (If-Then) Block (Zero Branching! Single Cycles!) │
+│   CMP   R0, #0            ; Compare condition                               │
+│   ITTE  NE                ; If-Then-Then-Else conditional execution mask    │
+│   MOVNE R1, #255          ; Execute ONLY IF NOT EQUAL (1 cycle!)            │
+│   MOVEQ R1, #120          ; Execute ONLY IF EQUAL     (1 cycle!)            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+* **The Problem with Jumps (Method A):** Jumping across memory disrupts the CPU's prefetch pipeline, costing several clock cycles.
+* **The Silicon Optimization (Method B):** On ARM Cortex-M microcontrollers, the Rust compiler leverages the **ARM Thumb-2 `IT` (If-Then)** instruction. The CPU evaluates both instructions linearly without jumping or flushing the pipeline, selecting the result in **a single clock cycle**!
+
+---
+
+### 4. The Three Loops of Rust: Overview
+
+Rust provides three distinct looping constructs, each engineered for a specific systems programming purpose:
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ THE THREE LOOPS OF RUST                                                     │
+│                                                                             │
+│ 1. `loop`  ──> THE UNCONDITIONAL INFINITE LOOP                              │
+│                • Runs forever until explicitly broken (`break`).            │
+│                • The standard "super-loop" of all embedded firmware.        │
+│                • Can return values via `break value;`.                      │
+│                                                                             │
+│ 2. `while` ──> THE CONDITIONAL LOOP                                         │
+│                • Evaluates a boolean condition before every iteration.      │
+│                • Used for state transitions and polled registers.           │
+│                • ⚠️ Danger in hardware: requires timeouts (NASA Rule #2).   │
+│                                                                             │
+│ 3. `for`   ──> THE BOUNDED ITERATOR LOOP                                    │
+│                • Iterates over ranges (`0..10`) or array elements.          │
+│                • Guarantees fixed upper bounds (NASA-compliant).            │
+│                • Zero-cost abstraction: eliminates runtime bounds checks!   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 5. The Infinite Super-Loop: `loop` (The Heart of Embedded Firmware)
+
+In desktop C or Java, developers write infinite loops using:
+
+```c
+// In C / Java:
+while (1) { /* ... */ }
+// or
+while (true) { /* ... */ }
+```
+
+In Rust, **`loop` is a dedicated keyword**:
+
+```rust
+loop {
+    // Microcontroller firmware super-loop:
+    read_sensors();
+    update_motor_pwm();
+}
+```
+
+#### Why did Rust introduce a dedicated `loop` keyword?
+
+1. **Compiler Flow Analysis & Definite Assignment:**
+   * In C and Java, compilers often fail to recognize that `while (true)` can never terminate naturally.
+   * In Rust, the compiler knows with mathematical certainty that a `loop` **never exits unless it hits a `break` or `return`**.
+   * Code placed directly after an unbroken `loop` triggers an `unreachable code` compile error, catching dead code bugs immediately.
+2. **Pure Machine Code Assembly:**
+   * A `while (true)` in unoptimized code evaluates a conditional check on every iteration (`CMP` then `BNE`).
+   * A Rust `loop` translates directly into a single, unconditional jump instruction (`B label` on ARM, `j label` on RISC-V). There is zero condition evaluation and zero wasted clock cycles.
+
+---
+
+### 6. Returning Values from `loop` using `break`
+
+A unique feature of Rust is that **`loop` can return a value** when it breaks:
+
+$$\text{break } [\text{value}] ;$$
+
+#### The Embedded Hardware Challenge: Waiting for Sensor Initialization
+Imagine an Inertial Measurement Unit (IMU / Gyroscope) connected over an I2C bus. When your robot powers on, the sensor requires a few milliseconds to calibrate internally before sending valid acceleration data.
+
+In traditional C or Java, you are forced to create a temporary mutable variable with garbage memory:
+
+```c
+// Clunky C/Java approach:
+int calibrated_gyro; // Uninitialized or set to temporary dummy 0
+while (1) {
+    if (imu_is_ready()) {
+        calibrated_gyro = imu_read_calibration();
+        break;
+    }
+}
+// `calibrated_gyro` stays mutable forever!
+```
+
+In Rust, you can return the reading directly out of the `loop` expression into an **immutable** variable:
+
+```rust
+// Idiomatic Rust: Return value directly out of `loop`!
+let calibrated_gyro: i16 = loop {
+    if imu.is_ready() {
+        // Break out of the loop AND yield the calibration integer:
+        break imu.read_calibration();
+    }
+    // Optional: wait a microsecond
+};
+
+// `calibrated_gyro` is now 100% IMMUTABLE and guaranteed valid!
+```
+
+```text
+Data Flow of `break value`:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ let calibrated_gyro = loop {                                                │
+│     if imu.is_ready() {                                                     │
+│         break imu.read_calibration(); ──┐                                   │
+│     }                                   │                                   │
+│ };                                      │                                   │
+│                                         ▼                                   │
+│ calibrated_gyro is permanently bound to the value yielded by `break`!       │
+│ Zero garbage initialization, zero mutability, zero heap allocation!         │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 7. The Master Semicolon (`;`) Mental Model: Across Functions, `if/else`, and Loops
+
+Beginners often get confused about when to type a semicolon `;` and when to omit it. 
+* *"Why does an `if/else` block have no semicolon inside, but a semicolon at the very end?"*
+* *"Why do `for` and `while` loops have no semicolon, but `loop` with `break` sometimes does?"*
+
+Here is the master mental model to eliminate all confusion:
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│                      THE CORE SEMICOLON RULE                           │
+├────────────────────────────────────────────────────────────────────────┤
+│ • NO SEMICOLON   = "Keep this value! Hand it upwards to who asked."   │
+│ • WITH SEMICOLON = "Throw this value in the trash! Return empty `()`"  │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+Think of a semicolon `;` as a **Value Eater (Trash Can)**.
+Whenever you put a semicolon at the end of an expression, you are telling Rust: *"Run this math, discard the computed result, and evaluate this line to empty unit `()`."*
+
+#### Situation 1: Inside Functions (Returning Values vs. Executing Actions)
+```rust
+// 1. You WANT the value to leave the function:
+fn get_speed() -> u8 {
+    100 // NO SEMICOLON! 100 flows out of the function to the caller.
+}
+
+// 2. You DO NOT want a return value (you just executed an action):
+fn honk_horn() {
+    trigger_buzzer(); // SEMICOLON! Action executed, nothing to return.
+}
+```
+
+#### Situation 2: The `if / else` Expression (Why Semicolon is at the End!)
+Look closely at how an `if/else` assignment is written:
+```rust
+let speed = if turbo_mode { 120 } else { 60 };
+//                          ^^^         ^^^  ^
+//                           1           2   3
+```
+1. **Inside `{ 120 }`** $\rightarrow$ **NO SEMICOLON**. Why? Because we want `120` to flow out of the `if` branch!
+2. **Inside `{ 60 }`** $\rightarrow$ **NO SEMICOLON**. Why? Because we want `60` to flow out of the `else` branch!
+3. **At the very end `};`** $\rightarrow$ **YES, A SEMICOLON!** Why? Because the entire line is a **`let` variable statement** (`let speed = ...;`). Every `let` statement in Rust must terminate with a semicolon!
+
+##### What if `if / else` is just performing an action?
+If an `if` statement is not assigning a variable, semicolons stay inside:
+```rust
+if obstacle_detected {
+    stop_motors();       // Semicolon inside!
+    flash_warning_led(); // Semicolon inside!
+} // NO semicolon needed here! (It is not a `let` statement).
+```
+
+#### Situation 3: Loops (`loop`, `while`, `for`)
+Why do standard loops have no semicolon, but `loop` with `break` does?
+
+##### 1. Regular Loops (Just doing background work):
+```rust
+for i in 0..10 {
+    motor.tick();
+} // NO semicolon at the end! It's just a loop doing work.
+```
+
+##### 2. Loop Returning a Value via `break` (Rust's Expression Superpower):
+```rust
+let connection_status = loop {
+    if ping_wifi() {
+        break true; // Break and hand `true` out of the loop!
+    }
+}; // <-- YES, SEMICOLON HERE!
+```
+* **Why the semicolon after `};`?** Because it is a **`let` statement**: `let connection_status = ...;`!
+
+---
+
+#### The Golden 4-Row Semicolon Cheat Sheet
+
+Whenever you are unsure whether to write a semicolon `;`, consult this decision matrix:
+
+| Scenario | Code Pattern | Semicolon Rule | Reason |
+| :--- | :--- | :---: | :--- |
+| **1. Function Tail Return** | `fn add(a: i32, b: i32) -> i32 { a + b }` | ❌ **NO `;`** | Hands the computed value directly to the caller. |
+| **2. Inside `if/else` Yield** | `let x = if ready { 10 } else { 0 };` | ❌ **NO `;`** *(inside `{}`)* | Allows the branch result to flow into variable `x`. |
+| **3. `let` Variable Binding** | `let x = 5;` or `let x = if ... { ... };` | ✅ **YES `;`** *(at end)* | All `let` declarations are statements and require `;`. |
+| **4. Performing an Action** | `set_motor_speed(100); pin.toggle();` | ✅ **YES `;`** | Discards return values and executes sequentially. |
+
+> [!TIP] The Compiler Safety Net Will Always Protect You!
+> If you make a punctuation mistake, `rustc` catches it 100% of the time with actionable fix suggestions:
+> * If you accidentally put a semicolon on a return line:  
+>   `help: remove this semicolon to return this value`
+> * If you forgot a semicolon on a statement:  
+>   `help: add a semicolon here: ';'`
+
+---
+
+### 8. Loop Labels: Disambiguating Nested Hardware Loops
+
+In robotics, you frequently nest loops: an outer loop managing mission states, and an inner loop polling serial packets or sensor bytes.
+
+What happens if an error in the inner loop requires aborting the **outer** loop entirely?
+
+In C and Java, developers often resort to ugly boolean flags (`bool abort_all = true; break;`) or dangerous `goto` statements.
+
+In Rust, you can assign **Loop Labels** starting with a single quote (`'label:`):
+
+```rust
+pub fn process_telemetry_stream() {
+    'mission_loop: loop {
+        println!("Mission running...");
+
+        'uart_rx_loop: loop {
+            let byte = uart.read_byte();
+
+            if byte == EMERGENCY_SHUTDOWN_BYTE {
+                // Instantly break out of the OUTER mission loop!
+                break 'mission_loop;
+            }
+
+            if byte == PACKET_END_BYTE {
+                // Break out of the INNER rx loop only:
+                break 'uart_rx_loop;
+            }
+        }
+    }
+
+    println!("Motors stopped. Firmware halted.");
+}
+```
+
+* `break 'mission_loop;` skips both loops immediately and cleanly jumps to the shutdown handler.
+* `continue 'mission_loop;` aborts the current inner packet and immediately restarts the outer mission cycle.
+
+---
+
+### 9. Conditional Looping with `while` & The Embedded Timeout Trap
+
+The `while` loop runs as long as a condition evaluates to `true`:
+
+```rust
+let mut countdown: u8 = 10;
+
+while countdown > 0 {
+    countdown -= 1;
+}
+```
+
+#### ⚠️ The Fatal Embedded Hardware Trap: Unbounded `while` Loops
+
+In robotics and embedded firmware, **an open-ended `while` loop waiting for external hardware is a lethal bug**.
+
+Consider this real-world hardware driver:
+
+```rust
+// ❌ DANGEROUS EMBEDDED CODE (Violates NASA Rule #2):
+while !i2c_bus.is_tx_empty() {
+    // Wait for hardware register to clear...
+}
+```
+
+What happens if:
+1. The robot hits a bump and the I2C sensor wire disconnects?
+2. A motor creates electrical noise that glitches the sensor's clock line?
+3. The sensor chip browns out?
+
+The hardware register `is_tx_empty()` will **never** become true. 
+
+The microcontroller will stay stuck in that `while` loop forever. The balance control loop stops running, motor signals freeze at their last commanded value, and the robot crashes at full speed!
+
+---
+
+### 10. NASA Power of 10 Rule #2: Guarantee Fixed Upper Bounds on All Loops
+
+To prevent runaway hardware locks, NASA JPL created **Rule #2**:
+
+> [!IMPORTANT] NASA Power of 10 Rule #2
+> **Every single loop in safety-critical software must have an explicit, statically provable upper bound on the maximum number of iterations.**
+> 
+> A loop must NEVER be allowed to run indefinitely waiting on physical hardware!
+
+#### How to Write NASA-Compliant Bounded Loops in Rust
+
+Always add an explicit iteration counter or timeout to every hardware poll:
+
+```rust
+const MAX_I2C_RETRIES: u32 = 10_000;
+
+fn wait_for_sensor_ready(sensor: &I2cSensor) -> Result<(), HardwareError> {
+    let mut retries: u32 = 0;
+
+    while !sensor.is_ready() {
+        retries = retries.saturating_add(1);
+
+        // Hardware Failsafe Guard:
+        if retries >= MAX_I2C_RETRIES {
+            // Bail out cleanly instead of hanging the flight computer!
+            return Err(HardwareError::Timeout);
+        }
+    }
+
+    Ok(())
+}
+```
+
+If the hardware fails, the function exits within a known, deterministic number of microseconds and returns an error that your robot's safety supervisor can handle gracefully.
+
+---
+
+### 11. Idiomatic & Safe Iteration: `for` and Ranges
+
+In C and Java, developers spend decades writing index-based `for` loops:
+
+```c
+// In C / Java: Manual index manipulation (Bug-prone!)
+for (int i = 0; i < 4; i++) {
+    set_motor(i, speeds[i]);
+}
+```
+
+Notice the risks in the C approach:
+1. **Off-by-one errors:** Accidentally writing `i <= 4` reads past the end of the array into random RAM.
+2. **Bounds checking penalty:** The CPU must check whether `i < array_len` on every single access.
+3. **Index variable pollution:** The variable `i` is exposed and can be accidentally modified inside the loop.
+
+Rust does **not** have a C-style three-part `for (init; cond; step)` loop. 
+
+Instead, Rust's `for` loop operates on **Ranges** and **Iterators**:
+
+$$\text{for variable in iterable \{ ... \}}$$
+
+#### Range Syntax in Plain English
+
+```rust
+// 1. Half-Open Range `0..4` (Count: 0, 1, 2, 3 - Exactly 4 times!)
+for motor_index in 0..4 {
+    println!("Testing motor: {}", motor_index);
+}
+
+// 2. Inclusive Range `1..=5` (Count: 1, 2, 3, 4, 5)
+for step in 1..=5 {
+    println!("Calibration step: {}", step);
+}
+
+// 3. Reversed Range `(0..4).rev()` (Count: 3, 2, 1, 0)
+for countdown in (0..4).rev() {
+    println!("Liftoff in: {}", countdown);
+}
+```
+
+---
+
+### 12. Iterating Over Arrays: Zero-Cost Abstraction & Bounds Check Elimination
+
+When processing sensor buffers or motor arrays, **never use manual array indexing with a counter**. Iterate over the collection directly:
+
+```rust
+let motor_pwm_values: [u8; 4] = [180, 200, 200, 180];
+
+// ✅ IDIOMATIC & SAFE: Iterate directly over values:
+for speed in motor_pwm_values {
+    apply_pwm_to_gate(speed);
+}
+```
+
+If you also need the index number (e.g., which motor pin to configure), use `.iter().enumerate()`:
+
+```rust
+let motor_pwm_values: [u8; 4] = [180, 200, 200, 180];
+
+for (motor_id, speed) in motor_pwm_values.iter().enumerate() {
+    set_motor_output(motor_id as u8, *speed);
+}
+```
+
+#### What Physically Happens in Silicon? (Bounds Check Elimination)
+
+When you write manual indexing:
+```rust
+let val = buffer[i]; // Rust must emit assembly to verify: is `i < buffer.len()`?
+```
+If `i` is out of bounds, Rust must jump to a panic routine.
+
+However, when you write:
+```rust
+for item in buffer { ... }
+```
+The compiler's LLVM optimizer mathematically **proves** that the iterator can never produce an index outside the memory bounds of the array.
+
+* **All runtime bounds check instructions are completely removed from machine code!**
+* The loop compiles into the most aggressive, pointer-incrementing assembly instructions the CPU supports.
+* You get **100% memory safety with absolute zero clock cycle penalty**.
+
+---
+
+### 13. Language Paradigm Comparison: Python vs. Java vs. Rust
+
+| Feature | Python | Java | Rust |
+| :--- | :--- | :--- | :--- |
+| **`if/else` produces value?** | Only via ternary syntax (`x if c else y`) | Only via ternary syntax (`c ? x : y`) | **Yes! `if/else` is a native expression** |
+| **Ternary Operator (`? :`)** | `x if cond else y` | `cond ? x : y` | **None** (Omitted because `if/else` handles it) |
+| **Branch Type Matching** | Dynamic (any type) | Ternary requires common type | **Strictly enforced at compile-time** |
+| **Infinite Loop Syntax** | `while True:` | `while (true) { }` | **`loop { }`** (Dedicated first-class keyword) |
+| **Return value from loop** | No | No | **Yes: `break value;`** |
+| **Labeled Loops** | No | `label: for(...)` with `break label;` | **`'label: loop` with `break 'label;`** |
+| **Traditional C `for` Loop** | No | `for (int i=0; i<n; i++)` | **No** (Banned to prevent off-by-one errors) |
+| **Range Syntax** | `range(0, 5)` | `IntStream.range(0, 5)` | **`0..5` or `0..=5`** (Built-in primitive) |
+| **Bounds Check Elimination** | No (Dynamic bounds) | Limited JIT optimization | **Guaranteed compile-time AOT elimination** |
+
+---
+
+### 14. Real-World Case Study: Autonomous Obstacle-Scan & Bounded Failsafe Controller
+
+Let's synthesize all control flow principles into a robust robotics module:
+1. An outer **`loop`** driving the continuous autonomous navigation cycle.
+2. A **`for` range loop** scanning a servo-mounted distance sensor across 5 discrete angles (`0..=180` degrees) with fixed upper bounds (**NASA Rule #2**).
+3. A **bounded `while` loop** polling the distance sensor with an explicit timeout counter.
+4. An **`if/else` expression** that evaluates the sensor readings directly into an immutable navigation decision (**NASA Rule #6**).
+
+```rust
+// ============================================================================
+// Types & Hardware Constants
+// ============================================================================
+
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum NavCommand {
+    FullAhead(u8),
+    TurnLeft(u8),
+    TurnRight(u8),
+    EmergencyStop,
+}
+
+#[derive(Debug)]
+pub enum SensorError {
+    BusTimeout,
+    SensorFault,
+}
+
+const MAX_POLL_CYCLES: u32 = 5_000;
+
+// ============================================================================
+// Bounded Sensor Poll Helper (NASA Rule #2 Compliant)
+// ============================================================================
+
+/// Reads a distance sensor with an explicit hardware timeout bound.
+/// Never hangs indefinitely on physical hardware disconnection!
+fn read_distance_bounded(sensor_ready: bool, raw_reading: u16) -> Result<u16, SensorError> {
+    let mut attempts: u32 = 0;
+
+    // NASA Rule #2: Fixed upper bound on loop execution:
+    while !sensor_ready {
+        attempts = attempts.saturating_add(1);
+        if attempts >= MAX_POLL_CYCLES {
+            return Err(SensorError::BusTimeout);
+        }
+    }
+
+    Ok(raw_reading)
+}
+
+// ============================================================================
+// Autonomous Navigation Supervisor
+// ============================================================================
+
+pub fn evaluate_navigation_path(
+    obstacle_ahead_cm: u16,
+    obstacle_left_cm: u16,
+    obstacle_right_cm: u16,
+    battery_critical: bool,
+) -> NavCommand {
+    // ------------------------------------------------------------------------
+    // NASA Rule #6: `if/else` Expression binds directly to an IMMUTABLE command
+    // ------------------------------------------------------------------------
+    let decision: NavCommand = if battery_critical {
+        NavCommand::EmergencyStop
+    } else if obstacle_ahead_cm > 50 {
+        // Clear runway: cruise forward at full speed:
+        NavCommand::FullAhead(200)
+    } else if obstacle_left_cm > obstacle_right_cm {
+        // Obstacle ahead, but left side has more clearance:
+        NavCommand::TurnLeft(140)
+    } else if obstacle_right_cm >= 20 {
+        // Right side has clearance:
+        NavCommand::TurnRight(140)
+    } else {
+        // Boxed in on all sides: Halt motors immediately!
+        NavCommand::EmergencyStop
+    };
+
+    decision // Tail expression return
+}
+
+// ============================================================================
+// Multi-Angle Servo Radar Sweep
+// ============================================================================
+
+/// Scans 4 predefined radar angles [0, 45, 90, 135] to map obstacles.
+/// Uses bounds-eliminated `for` iteration.
+pub fn scan_surroundings() -> [u16; 4] {
+    let scan_angles: [u16; 4] = [0, 45, 90, 135];
+    let mut scan_results: [u16; 4] = [0; 4];
+
+    // Safe iterator with bounds check elimination:
+    for (i, angle) in scan_angles.iter().enumerate() {
+        set_servo_angle(*angle);
+        
+        // Bounded poll:
+        let distance = match read_distance_bounded(true, 42) {
+            Ok(dist) => dist,
+            Err(_) => 0, // Treat timed-out sensor as an immediate obstacle (failsafe)
+        };
+
+        scan_results[i] = distance;
+    }
+
+    scan_results
+}
+```
+
+```text
+Autonomous Control Flow Architecture:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 1. `loop` (Firmware Super-Loop)                                             │
+│    └── Runs 1000 times/sec, never exits on bare metal silicon               │
+│                                                                             │
+│ 2. `scan_surroundings` (Bounded `for` Range Loop)                           │
+│    ├── For angle in [0, 45, 90, 135] ──> Zero-cost bounds elimination       │
+│    └── Calls `read_distance_bounded`                                        │
+│         └── `while !sensor_ready` (Bounded by MAX_POLL_CYCLES = 5000)       │
+│              ├── [ Ready in time ] ──► Returns Ok(distance)                 │
+│              └── [ Exceeds bound ] ──► Returns Err(Timeout) (NASA Rule #2)  │
+│                                                                             │
+│ 3. `evaluate_navigation_path` (`if/else` as Expression)                     │
+│    └── Evaluates clearances ─────────► Binds IMMUTABLE `NavCommand`         │
+│                                        (Zero mutability, NASA Rule #6)      │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 1.7 Practical Coding Traps: The 7 Compiler Pitfalls That Catch Java/Python Developers
+
+When developers transition from Python or Java to Bare-Metal Embedded Rust, they often understand the high-level concepts but trip over **practical compiler landmines**. 
+
+In high-level languages, the runtime hides memory copying, string allocations, and overflow errors. In bare-metal Rust, every line of code maps directly to physical silicon. 
+
+Here are the **7 critical coding traps** that cause compile-time failures or fatal runtime bugs on microcontrollers—and how to avoid them.
+
+---
+
+### Trap 1: The Infinite Loop in Inclusive Ranges (`for i in 0..=255_u8`)
+
+Look at this innocent-looking loop designed to test all 256 possible byte values of a hardware PWM channel:
+
+```rust
+// ❌ CRITICAL BUG: Infinite loop or compile-time panic!
+for duty in 0..=255_u8 {
+    set_motor_pwm(duty);
+}
+```
+
+#### Why this breaks in physical silicon:
+* The inclusive range `0..=255_u8` tells the CPU: *"Loop while `duty <= 255`."*
+* When the loop reaches `255`, it completes the iteration and increments `duty` ($255 + 1$).
+* But a `u8` is an 8-bit unsigned integer whose maximum possible value is $255$ (`0b1111_1111`).
+* **In Release Mode (`--release`)**: $255 + 1$ silently wraps back to `0`. The condition `duty <= 255` is **always true**, and the loop **runs forever in an infinite loop**, hanging your microcontroller!
+* **In Debug Mode**: The arithmetic overflow check triggers an immediate panic, killing the firmware.
+
+```text
+The Inclusive Range Overflow Trap:
+  Iteration 254 ──► duty = 254 (<= 255 : Continue)
+  Iteration 255 ──► duty = 255 (<= 255 : Continue)
+  Next Step     ──► 255 + 1 overflows 8 bits ──► duty = 0!
+  Iteration 0   ──► duty = 0   (<= 255 : Infinite Loop restarts!)
+```
+
+#### The Safe Embedded Fix:
+Widen the loop counter type to `u16`, or iterate directly over a byte slice:
+
+```rust
+// ✅ FIX 1: Widen the counter to 16 bits so it can reach 256:
+for duty in 0..256_u16 {
+    set_motor_pwm(duty as u8);
+}
+
+// ✅ FIX 2: Use the standard range 0..=u8::MAX with u16:
+for duty in 0..=u8::MAX as u16 {
+    set_motor_pwm(duty as u8);
+}
+```
+
+---
+
+### Trap 2: Array Passing by Value vs. Stack Exhaustion (`[u8; 1024]` vs. `&[u8]`)
+
+In Java and Python, arrays and lists are objects stored on the heap. When you pass a 1,000-element list into a function, the runtime passes a tiny 64-bit reference.
+
+In Rust, a fixed-size array `[T; N]` is a **primitive value type** that lives directly on the stack!
+
+```rust
+// ⚠️ DANGEROUS: Passes the array BY VALUE!
+fn parse_telemetry_packet(buffer: [u8; 1024]) {
+    // Processing packet...
+}
+
+pub fn main() {
+    let rx_data: [u8; 1024] = [0; 1024];
+    parse_telemetry_packet(rx_data); // COPIES 1,024 BYTES ONTO THE STACK!
+}
+```
+
+#### Why this crashes microcontrollers:
+* In a PC with 16 GB of RAM, copying 1 KB of data is negligible.
+* On a microcontroller with **16 KB of total RAM**, your CPU stack might only be **2 KB deep**!
+* Calling `parse_telemetry_packet(buffer)` forces the CPU to push 1,024 bytes onto the stack frame. If that function calls another helper, the stack collides with global variables in RAM (**Stack Overflow**), instantly freezing or rebooting the chip.
+
+```text
+Microcontroller RAM (e.g. 2 KB Stack limit):
+┌─────────────────────────────────────────────────────────────┐
+│ Stack Top (0x20000800)                                      │
+│ ├── main() stack frame: rx_data [1024 bytes]                │
+│ └── parse_telemetry_packet() stack frame: [1024 bytes copy] │
+│     💥 CRASH! STACK OVERFLOW! Collided with program RAM!    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### The Safe Embedded Fix:
+Never pass large arrays by value. Pass a **borrowed slice (`&[u8]`)**:
+
+```rust
+// ✅ SAFE & IDIOMATIC: Borrows a slice (passes 8 bytes: pointer + length)
+fn parse_telemetry_packet(buffer: &[u8]) {
+    let first_byte = buffer[0];
+}
+
+pub fn main() {
+    let rx_data: [u8; 1024] = [0; 1024];
+    parse_telemetry_packet(&rx_data); // Zero memory copied!
+}
+```
+
+---
+
+### Trap 3: String Literals (`"..."`) vs. Byte String Literals (`b"..."`) in Hardware Drivers
+
+In Python, sending an AT command to a cellular or GPS module looks like: `ser.write("AT+RESET\r\n")`.
+
+If you write this in Embedded Rust:
+
+```rust
+// ❌ COMPILE ERROR!
+uart.write("AT+RESET\r\n");
+```
+
+`rustc` stops compilation with a type error:
+```text
+error[E0308]: mismatched types
+  --> src/main.rs:5:16
+   |
+ 5 |     uart.write("AT+RESET\r\n");
+   |                ^^^^^^^^^^^^^^ expected `&[u8]`, found `&str`
+```
+
+#### Why this happens:
+* In Rust, `"AT+RESET\r\n"` is a **UTF-8 string slice (`&str`)**.
+* Microcontroller communication buses (UART, SPI, I2C, CAN) do not understand human Unicode text strings. They transmit **raw 8-bit electrical bytes (`u8`)**.
+* The hardware driver expects a byte slice: `&[u8]`.
+
+#### The Fix: The Byte String Literal (`b"..."`)
+Prefix the string literal with the letter **`b`**:
+
+```rust
+// ✅ CORRECT: Byte string literal produces &[u8]
+uart.write(b"AT+RESET\r\n");
+```
+
+| Syntax | Type | Physical Memory | Embedded Hardware Usage |
+| :--- | :--- | :--- | :--- |
+| `"HELLO"` | `&str` | UTF-8 text slice | Screen displays, log formatting |
+| `b"HELLO"` | `&'static [u8; 5]` | Raw byte array (`[72, 69, 76, 76, 79]`) | UART serial, SPI, radio packets, AT commands |
+
+---
+
+### Trap 4: Outer `#[...]` vs. Inner `#![...]` Attributes (The Exclamation Mark Landmine)
+
+In Rust, compiler attributes configure settings, lints, and code generation. 
+
+Beginners often get confused by the exclamation mark `!` in attribute syntax:
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ATTRIBUTE SYNTAX: INNER VS. OUTER                                           │
+│                                                                             │
+│ 1. INNER ATTRIBUTE (`#!` with exclamation mark):                            │
+│    • Applies to the ENTIRE ENCLOSING MODULE, CRATE, OR FILE.                │
+│    • Must be placed at the very top of the file before any items.           │
+│    • Example: `#![no_std]` (Applies to this entire firmware crate)         │
+│                                                                             │
+│ 2. OUTER ATTRIBUTE (`#` without exclamation mark):                          │
+│    • Applies ONLY to the SINGLE ITEM IMMEDIATELY BELOW IT.                  │
+│    • Example: `#[inline]` (Applies only to the function directly below)     │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### The Trap:
+If you place `#![inline]` above a function or `#![no_std]` inside a function:
+
+```rust
+// ❌ COMPILE ERROR!
+#![inline] // Error: an inner attribute is not permitted in this context!
+fn calculate_speed() -> u8 {
+    50
+}
+```
+
+#### The Rule of Thumb:
+* If you are configuring the **entire crate or file** (like `#![no_std]`, `#![no_main]`, or `#![forbid(unsafe_code)]`), use **`#!`** at the top of the file.
+* If you are annotating a **single function, struct, or enum** (like `#[inline]`, `#[derive(Debug)]`, or `#[panic_handler]`), use **`#`** directly above that item.
+
+---
+
+### Trap 5: The Three Missing Pillars of Bare-Metal `#![no_std]` Files
+
+If you create a brand-new Rust file and simply add `#![no_std]`:
+
+```rust
+// src/main.rs
+#![no_std]
+
+fn main() {
+    // Simple bare-metal code
+}
+```
+
+Running `cargo build` produces an avalanche of confusing compiler and linker errors:
+```text
+error: requires `start` lang_item
+error: `#[panic_handler]` function required, but not found
+error: language item required, but not found: `eh_personality`
+```
+
+#### Why this happens in silicon:
+On a desktop computer, the operating system (Linux/Windows) runs a hidden C startup runtime (`crt0`) that initializes memory, handles stack unwinding on crashes (`eh_personality`), and invokes `main()`.
+
+When you declare `#![no_std]`, **all of that operating system glue is removed**. You must provide the three mandatory pillars of bare-metal execution:
+
+```rust
+// ============================================================================
+// THE 3 MANDATORY PILLARS OF BARE-METAL FIRMWARE
+// ============================================================================
+
+#![no_std]  // Pillar 1: Ban the OS standard library
+#![no_main] // Pillar 2: Tell the compiler there is no standard OS C runtime
+
+use core::panic::PanicInfo;
+
+// Pillar 3: Tell the CPU what to do if an assertion or panic occurs:
+#[panic_handler]
+fn panic(_info: &PanicInfo) -> ! {
+    loop {
+        // Freeze CPU on error (or reset)
+    }
+}
+
+// The real hardware entry point (provided by architecture runtime like cortex-m-rt)
+#[cortex_m_rt::entry]
+fn main() -> ! {
+    loop {
+        // Robot firmware super-loop
+    }
+}
+```
+
+---
+
+### Trap 6: The Signed-to-Unsigned `as` Reinterpretation Trap
+
+In robotics, sensor readings often have direction (e.g., an IMU pitch angle can be positive when tilting up, negative when tilting down: `i16`).
+
+What happens if you cast a negative signed integer to an unsigned integer with `as`?
+
+```rust
+let gyro_offset: i16 = -50; // Tilting downward
+
+// ⚠️ SILENT TRAP: What is target_pwm?
+let target_pwm: u16 = gyro_offset as u16;
+```
+
+#### What physically happens in silicon:
+* In two's complement binary, `-50` as a 16-bit integer is: `1111 1111 1100 1110`.
+* The `as u16` cast **does not convert the value**. It takes the exact same 16 physical bits and reinterprets them as an unsigned number.
+* `1111 1111 1100 1110` in unsigned binary is **`65,486`**!
+* Your balance controller thought it was applying a small correction, but your motor controller receives command `65486`, driving the motors at violent maximum speed!
+
+```text
+The Signed Reinterpretation Trap:
+  Input Value (i16)  : -50   ──► Binary: 1111 1111 1100 1110
+                                          │
+                                 `as u16` keeps identical bits!
+                                          ▼
+  Output Value (u16) : 65486 ──► Binary: 1111 1111 1100 1110
+  Consequence: Robot slams into reverse/forward at maximum RPM!
+```
+
+#### The Safe Embedded Fix:
+Clamp negative numbers before casting, or use `TryFrom`:
+
+```rust
+// ✅ FIX 1: Explicit clamping:
+let safe_pwm: u16 = if gyro_offset < 0 {
+    0
+} else {
+    gyro_offset as u16
+};
+
+// ✅ FIX 2: Saturating conversion with core::convert::TryFrom:
+use core::convert::TryFrom;
+let safe_pwm: u16 = u16::try_from(gyro_offset).unwrap_or(0);
+```
+
+---
+
+### Trap 7: The Myth of `println!` & How Embedded Logging Actually Works
+
+Every Python and Java developer uses `print()` or `System.out.println()` to debug code.
+
+In Bare-Metal Embedded Rust:
+
+```rust
+println!("Motor speed: {}", speed); // ❌ COMPILE ERROR! Cannot find macro `println!`
+```
+
+#### Why `println!` does not exist in `#![no_std]`:
+1. **No Operating System:** `println!` writes bytes to File Descriptor 1 (`stdout`), managed by the Linux or Windows kernel. A bare-metal microcontroller has no kernel and no stdout.
+2. **Flash Bloat:** The code required to format numbers, floats, and strings dynamically consumes **15 KB to 30 KB of Flash storage**! On a chip with only 32 KB of Flash, a single `println!` would consume your entire microcontroller storage.
+
+#### How Embedded Engineers Actually Print Logs (Zero-Overhead Logging):
+
+In modern embedded Rust, we use two industry-standard tools instead of `println!`:
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ MODERN EMBEDDED LOGGING TOOLS                                               │
+│                                                                             │
+│ 1. RTT (Real-Time Transfer via `rtt-target`):                               │
+│    • Writes bytes into a circular ring buffer inside the chip's RAM.        │
+│    • The hardware debug probe (ST-Link / J-Link) reads RAM over the SWD wire│
+│      while the CPU continues executing without pausing!                     │
+│    • Takes only 1–2 microseconds per log message!                           │
+│                                                                             │
+│ 2. `defmt` (Deferred Formatting):                                           │
+│    • The Holy Grail of embedded logging.                                    │
+│    • The text strings ("Motor speed: {}") are NEVER stored on the chip!     │
+│    • Strings stay on your development laptop inside the `.elf` binary.      │
+│    • The microcontroller sends only a 1-byte ID and raw numeric bytes.      │
+│    • Saves up to 90% Flash space and runs 10x faster than UART printing!   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+Using `defmt` in embedded code:
+```rust
+// Uses deferred formatting: burns 0 string bytes in microcontroller Flash!
+defmt::info!("Motor initialized at duty: {}", speed);
+```
+
+---
+
+### Summary Checklist: Before You Compile Embedded Code
+
+| Checklist Item | Bad Habit to Avoid | Idiomatic Embedded Rust |
+| :--- | :--- | :--- |
+| **Inclusive Loop Ranges** | `for i in 0..=255_u8` (Infinite loop!) | `for i in 0..256_u16` or iterate directly |
+| **Passing Arrays** | `fn run(buf: [u8; 1024])` (Stack blowup) | `fn run(buf: &[u8])` (Zero-copy slice) |
+| **UART Strings** | `uart.write("AT\r\n")` (Type mismatch) | `uart.write(b"AT\r\n")` (Byte literal) |
+| **Global File Attributes** | `#[no_std]` (Syntax error) | `#![no_std]` (Inner attribute with `!`) |
+| **Bare-Metal Skeleton** | Just `fn main()` | `#![no_std]`, `#![no_main]`, `#[panic_handler]` |
+| **Signed to Unsigned** | `let u = neg_i16 as u16` (Wild jumps) | `u16::try_from(val).unwrap_or(0)` |
+| **Debugging Output** | Standard `println!` (Fails in `#![no_std]`) | `defmt::info!` or RTT probe logging |
+
+---
 
 
 
